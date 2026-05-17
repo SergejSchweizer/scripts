@@ -67,7 +67,7 @@ def test_probe_streams_parses_ffprobe_output(monkeypatch: pytest.MonkeyPatch, tm
     file_path = tmp_path / "movie.mkv"
     file_path.write_text("x", encoding="utf-8")
 
-    def fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+    def fake_run(*args, **_kwargs):  # type: ignore[no-untyped-def]
         return DummyResult(stdout="0,video\n1,audio,eng\n2,subtitle,spa\n")
 
     monkeypatch.setattr("nas_scripts.utils.media.subprocess.run", fake_run)
@@ -108,7 +108,7 @@ def test_filter_to_english_returns_false_when_ffmpeg_fails(
     )
     monkeypatch.setattr(
         "nas_scripts.utils.media.subprocess.run",
-        lambda *args, **kwargs: DummyResult(returncode=1),  # type: ignore[no-untyped-def]
+        lambda *args, **_kwargs: DummyResult(returncode=1),  # type: ignore[no-untyped-def]
     )
     assert not filter_to_english_audio_and_subtitles(file_path, ffmpeg_threads=1)
 
@@ -146,7 +146,7 @@ def test_filter_to_english_returns_false_when_verify_probe_fails(
     monkeypatch.setattr("nas_scripts.utils.media.probe_streams", fake_probe)
     monkeypatch.setattr(
         "nas_scripts.utils.media.subprocess.run",
-        lambda *args, **kwargs: DummyResult(returncode=0),  # type: ignore[no-untyped-def]
+        lambda *args, **_kwargs: DummyResult(returncode=0),  # type: ignore[no-untyped-def]
     )
     assert not filter_to_english_audio_and_subtitles(file_path, ffmpeg_threads=1)
 
@@ -178,7 +178,7 @@ def test_file_lock_raises_when_underlying_lock_fails(monkeypatch: pytest.MonkeyP
     if "nas_scripts.utils.locking.fcntl" in globals():
         pass
 
-    def raise_oserror(*args, **kwargs):  # type: ignore[no-untyped-def]
+    def raise_oserror(*args, **_kwargs):  # type: ignore[no-untyped-def]
         raise OSError("busy")
 
     monkeypatch.setattr("nas_scripts.utils.locking.fcntl.flock", raise_oserror)
@@ -198,10 +198,10 @@ def test_setup_logger_falls_back_to_cwd_logs(monkeypatch: pytest.MonkeyPatch, tm
     primary_log = tmp_path / "primary" / "fallback_test.log"
 
     class DummyFileHandler(logging.Handler):
-        def emit(self, record: logging.LogRecord) -> None:
+        def emit(self, _record: logging.LogRecord) -> None:
             return None
 
-    def fake_handler(path, *args, **kwargs):  # type: ignore[no-untyped-def]
+    def fake_handler(path, *args, **_kwargs):  # type: ignore[no-untyped-def]
         path_obj = Path(path)
         calls.append(path_obj)
         if len(calls) == 1:
@@ -219,7 +219,7 @@ def test_setup_logger_falls_back_to_cwd_logs(monkeypatch: pytest.MonkeyPatch, tm
 def test_setup_logger_handles_both_file_paths_failing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
         "nas_scripts.utils.logging.TimedRotatingFileHandler",
-        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("nope")),
+        lambda *args, **_kwargs: (_ for _ in ()).throw(OSError("nope")),
     )
     monkeypatch.chdir(tmp_path)
     logger = setup_script_logger("no_file_test", Path("/nonwritable/logs/no_file_test.log"))

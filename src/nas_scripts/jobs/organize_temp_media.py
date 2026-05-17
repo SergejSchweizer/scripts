@@ -159,8 +159,6 @@ def main(*, reorganize_existing: bool | None = None) -> int:
         config = replace(config, reorganize_existing=reorganize_existing)
     logger = setup_script_logger(config.script_name, config.log_file)
     logger.info("Starting %s", config.script_name)
-    if not config.temp_dir.exists():
-        return organize_files(config, logger=logger)
     try:
         with FileLock(config.lock_file):
             return organize_files(config, logger=logger)

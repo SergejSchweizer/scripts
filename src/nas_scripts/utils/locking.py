@@ -67,6 +67,6 @@ class FileLock:
         """Enter the context manager and acquire the lock."""
         return self.acquire()
 
-    def __exit__(self, exc_type, exc, tb) -> None:
+    def __exit__(self, _exc_type, exc, _tb) -> None:
         """Exit the context manager and release the lock."""
         self.release()

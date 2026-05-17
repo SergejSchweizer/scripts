@@ -28,7 +28,6 @@ from nas_scripts.utils.media import (
     copy_file_with_metadata,
     find_non_english_audio_subtitle_streams,
     filter_to_english_audio_and_subtitles,
-    is_media_file,
     probe_streams,
     remove_empty_directories,
     remove_leftover_temp_files,
@@ -152,8 +151,6 @@ def keep_only_english_audio_and_subtitles(
 
     for relpath in media_files:
         file_path = config.dest_dir / relpath
-        if not is_media_file(file_path, config.extensions):
-            continue
         file_stat: os.stat_result = file_path.stat()
         current_size = file_stat.st_size
         current_mtime_ns = file_stat.st_mtime_ns
@@ -279,8 +276,6 @@ def main() -> int:
     config = load_sync_media_library_config()
     logger = setup_script_logger(config.script_name, config.log_file)
     logger.info("Starting %s", config.script_name)
-    if not config.source_dir.exists() or not config.dest_dir.exists():
-        return run_job(config, logger=logger)
     try:
         with FileLock(config.lock_file):
             return run_job(config, logger=logger)

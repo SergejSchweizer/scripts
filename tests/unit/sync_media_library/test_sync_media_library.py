@@ -42,16 +42,16 @@ def make_config(tmp_path: Path) -> SyncMediaLibraryConfig:
 
 
 class DummyLogger:
-    def info(self, *args, **kwargs):
+    def info(self, *args, **_kwargs):
         return None
 
-    def warning(self, *args, **kwargs):
+    def warning(self, *args, **_kwargs):
         return None
 
-    def error(self, *args, **kwargs):
+    def error(self, *args, **_kwargs):
         return None
 
-    def exception(self, *args, **kwargs):
+    def exception(self, *args, **_kwargs):
         return None
 
 
@@ -532,7 +532,7 @@ def test_filter_to_english_audio_and_subtitles_verifies_output_before_replacing(
     class Result:
         returncode = 0
 
-    def fake_run(cmd, capture_output, text):  # type: ignore[no-untyped-def]
+    def fake_run(cmd, **_kwargs):  # type: ignore[no-untyped-def]
         temp_path = Path(cmd[-1])
         temp_path.write_text("filtered", encoding="utf-8")
         return Result()
@@ -594,7 +594,7 @@ def test_filter_to_english_audio_and_subtitles_rejects_unverified_output(
     class Result:
         returncode = 0
 
-    def fake_run(cmd, capture_output, text):  # type: ignore[no-untyped-def]
+    def fake_run(cmd, **_kwargs):  # type: ignore[no-untyped-def]
         temp_path = Path(cmd[-1])
         temp_path.write_text("filtered", encoding="utf-8")
         return Result()
