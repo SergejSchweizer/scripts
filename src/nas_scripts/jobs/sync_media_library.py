@@ -72,6 +72,14 @@ def sync_media_files(
             copy_file_with_metadata(source_path, dest_path)
             copied_files.append(dest_path)
             logger.info("Copied: %s", relpath)
+            continue
+
+        source_checksum = sha256_file(source_path)
+        dest_checksum = sha256_file(dest_path)
+        if source_checksum != dest_checksum:
+            copy_file_with_metadata(source_path, dest_path)
+            copied_files.append(dest_path)
+            logger.info("Updated changed file: %s", relpath)
 
     for relpath in sorted(dest_set - source_set):
         full_path = config.dest_dir / relpath

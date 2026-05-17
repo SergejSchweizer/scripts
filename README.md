@@ -12,11 +12,13 @@ This repository contains two NAS jobs:
 - [Quick Start](#quick-start)
 - [Project Overview](#project-overview)
 - [Jobs](#jobs)
+- [Operational Behavior](#operational-behavior)
 - [Configuration](#configuration)
 - [Execution](#execution)
 - [System Dependencies](#system-dependencies)
 - [Quality Checks](#quality-checks)
 - [Testing](#testing)
+- [Known Limitations](#known-limitations)
 - [Development Rules](#development-rules)
 - [Troubleshooting](#troubleshooting)
 
@@ -71,6 +73,7 @@ Behavior:
 | --- | --- |
 | Input | Media files in `SOURCE_DIR` |
 | Output | Copied media in `DEST_DIR` |
+| Sync strategy | Copies new files and refreshes destination files when source content changed |
 | Cleanup | Removes stale files and empty directories |
 | Stream filtering | Uses `ffprobe` and `ffmpeg` to remove one non-English audio or subtitle track per run |
 | Cache | Stores verification state in a checksum-based JSON file |
@@ -87,6 +90,7 @@ Important detail:
 
 - A file may need multiple runs before all non-English audio/subtitle tracks are removed.
 - Already verified files are skipped on later runs unless the policy version changes or the file changes.
+- Temporary files created by this script (`.nas_scripts_tmp.*`) under `DEST_DIR` are removed during cleanup.
 
 ### `organize-temp-media`
 
@@ -247,7 +251,7 @@ completes. If that happens, review/stage the changes and commit again.
 
 ## Testing
 
-Run all tests:
+Run all tests with coverage enforcement (minimum 92%):
 
 ```bash
 .venv/bin/pytest -q
@@ -257,6 +261,12 @@ Run only the unit suites:
 
 ```bash
 .venv/bin/pytest -q tests/unit
+
+Generate an explicit coverage report:
+
+```bash
+.venv/bin/pytest --cov=src/nas_scripts --cov-report=term-missing
+```
 ```
 
 The repository currently includes unit coverage for:
@@ -266,6 +276,13 @@ The repository currently includes unit coverage for:
 - media copy and stream filtering
 - temp-file organization and destination routing
 - logger setup and file locking
+
+Some media-sync tests depend on local fixture files under `tests/data/sync_media_library`.
+If that directory is missing, those fixture-dependent tests are skipped automatically.
+
+## Known Limitations
+
+- `sync-media-library` removes one non-English audio/subtitle stream per run, so files with many such streams may require multiple runs.
 
 ## Development Rules
 

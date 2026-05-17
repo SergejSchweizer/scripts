@@ -106,6 +106,19 @@ def test_sync_media_files_copies_new_and_deletes_stale(tmp_path: Path) -> None:
     assert not (config.dest_dir / "old.mkv").exists()
 
 
+def test_sync_media_files_overwrites_when_source_content_changes(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+    config.source_dir.mkdir(parents=True)
+    config.dest_dir.mkdir(parents=True)
+    (config.source_dir / "movie.mkv").write_text("new source", encoding="utf-8")
+    (config.dest_dir / "movie.mkv").write_text("old destination", encoding="utf-8")
+
+    copied = sync_media_files(config, logger=DummyLogger())
+
+    assert [path.name for path in copied] == ["movie.mkv"]
+    assert (config.dest_dir / "movie.mkv").read_text(encoding="utf-8") == "new source"
+
+
 def test_find_non_english_audio_subtitle_streams_returns_matching_indexes() -> None:
     streams = [
         MediaStream(index=0, codec_type="video", language=None),
@@ -411,7 +424,7 @@ def test_filter_to_english_audio_and_subtitles_verifies_output_before_replacing(
                 MediaStream(index=2, codec_type="audio", language="rus"),
                 MediaStream(index=3, codec_type="subtitle", language="spa"),
             ]
-        temp_name = f"temp.{file_path.suffix.lstrip('.')}"
+        temp_name = f".nas_scripts_tmp.{file_path.suffix.lstrip('.')}"
         if path.name == temp_name:
             return [
                 MediaStream(index=0, codec_type="video", language=None),
@@ -472,7 +485,7 @@ def test_filter_to_english_audio_and_subtitles_rejects_unverified_output(
                 MediaStream(index=2, codec_type="audio", language="rus"),
                 MediaStream(index=3, codec_type="subtitle", language="spa"),
             ]
-        temp_name = f"temp.{file_path.suffix.lstrip('.')}"
+        temp_name = f".nas_scripts_tmp.{file_path.suffix.lstrip('.')}"
         if path.name == temp_name:
             return [
                 MediaStream(index=0, codec_type="video", language=None),
@@ -503,6 +516,23 @@ def test_filter_to_english_audio_and_subtitles_rejects_unverified_output(
 
     assert file_path.read_text(encoding="utf-8") == "original"
     assert "Stream 2 was not removed" in log_file.read_text(encoding="utf-8")
+
+
+def test_remove_leftover_temp_files_only_deletes_script_temp_prefix(tmp_path: Path) -> None:
+    root = tmp_path / "dest"
+    root.mkdir()
+    ours = root / ".nas_scripts_tmp.mkv"
+    legacy = root / "temp.mkv"
+    ours.write_text("tmp", encoding="utf-8")
+    legacy.write_text("keep", encoding="utf-8")
+
+    from nas_scripts.utils.media import remove_leftover_temp_files
+
+    removed = remove_leftover_temp_files(root)
+
+    assert removed == [ours]
+    assert not ours.exists()
+    assert legacy.exists()
 
 
 def test_collect_relative_media_files_uses_real_media_fixtures() -> None:

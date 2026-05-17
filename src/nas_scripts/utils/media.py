@@ -167,7 +167,7 @@ def filter_to_english_audio_and_subtitles(
             )
         return False
 
-    temp_file = file_path.with_name(f"temp.{file_path.suffix.lstrip('.')}")
+    temp_file = file_path.with_name(f".nas_scripts_tmp.{file_path.suffix.lstrip('.')}")
     result = subprocess.run(
         [
             "ffmpeg",
@@ -229,7 +229,7 @@ def filter_to_english_audio_and_subtitles(
 def remove_leftover_temp_files(root: Path) -> list[Path]:
     """Clean up temporary files left behind by the remuxing workflow."""
     removed: list[Path] = []
-    for path in root.rglob("temp.*"):
+    for path in root.rglob(".nas_scripts_tmp.*"):
         if path.is_file():
             path.unlink(missing_ok=True)
             removed.append(path)

@@ -1,108 +1,55 @@
-# OS files
-.DS_Store
-Thumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-.Spotlight-V100/
-.Trashes/
+# Ignore everything by default.
+*
 
-# Editor and IDE files
-.idea/
-.vscode/
+# Allow only repository source, tests, scripts, hooks, and core metadata.
+!.gitignore
+!.githooks/
+!.githooks/pre-commit
+!README.md
+!AGENT.md
+!AGENTS.md
+!pyproject.toml
+!requirements.txt
+!src/
+!src/**
+!tests/
+!tests/**
+!scripts/
+!scripts/**
 
-# Codex metadata
-.codex
-.codex*
-.agents/
-.codex-plugin/
-*.code-workspace
-*.suo
-*.user
-*.userossc
-*.sln.docstates
-*.swp
-*.swo
-*~
-
-# Logs and local env
+# Re-ignore generated or local artifacts under allowed paths.
+**/__pycache__/
+**/*.py[cod]
+**/*.pyd
+.python-version
+.venv/
+venv/
+env/
+ENV/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.tox/
+.nox/
+dist/
+build/
+*.egg-info/
+.coverage
 *.log
 *.tmp
 *.temp
 .env
 .env.*
 !.env.example
-/config/
-
-# Python
-__pycache__/
-*.py[cod]
-*.pyd
-.python-version
-.venv/
-.mypy_cache/
-.pytest_cache/
-.ruff_cache/
-.tox/
-.nox/
-.venv/
-venv/
-env/
-ENV/
-dist/
-build/
-*.egg-info/
-
-# Node
+.idea/
+.vscode/
+.codex
+.codex*
+.agents/
+.codex-plugin/
+*~
+*.swp
+*.swo
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
 .npm/
 .pnpm-store/
-
-# Archives
-*.zip
-*.tar
-*.gz
-*.bz2
-*.7z
-*.rar
-*.pdf
-
-# Test fixture data
-tests/data/
-
-# Video media files
-*.3g2
-*.3gp
-*.amv
-*.asf
-*.avi
-*.drc
-*.f4v
-*.flv
-*.m2ts
-*.m2v
-*.m4v
-*.mkv
-*.mov
-*.mp2
-*.mp4
-*.mpe
-*.mpeg
-*.mpg
-*.mpv
-*.mts
-*.mxf
-*.ogg
-*.ogv
-*.qt
-*.rm
-*.rmvb
-*.svi
-*.ts
-*.vob
-*.webm
-*.wmv
-*.yuv
