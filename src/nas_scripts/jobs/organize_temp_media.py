@@ -74,6 +74,7 @@ class RenameConflictResolver:
 
 def _build_conflict_resolver(policy: str) -> ConflictResolver:
     """Factory for conflict-handling strategy selection."""
+    # Policy defaults to overwrite; parser already normalizes unknown values.
     if policy == "skip":
         return SkipConflictResolver()
     if policy == "rename":
@@ -126,11 +127,14 @@ def organize_files(config: OrganizeTempMediaConfig, *, logger: logging.Logger) -
             # Conflict policy is centralized behind a strategy to keep workflow linear.
             resolved_destination = conflict_resolver.resolve(destination_path, logger=logger)
             if resolved_destination is None:
+                # Skip policy returns None to signal a deliberate no-op.
                 continue
             destination_path = resolved_destination
 
+        # shutil.move handles cross-device moves by falling back to copy+unlink.
         shutil.move(str(source_path), str(destination_path))
 
+        # Keep destination folder/file timestamps aligned with moved file metadata.
         set_path_timestamp_from_source(destination_dir, destination_path)
         set_path_timestamp_from_source(destination_path, destination_path)
 

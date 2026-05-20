@@ -14,6 +14,7 @@ FRAGMENTS = ['fragments/00_purpose.md', 'fragments/10_core_rules.md', 'fragments
 
 
 def download_text(url: str) -> str:
+    # Tight timeout keeps commit hooks from hanging indefinitely on network issues.
     with urlopen(url, timeout=15) as response:
         return response.read().decode("utf-8")
 
@@ -29,6 +30,7 @@ def build_agents_content() -> str:
 
 
 def stage_agents_file(repo_root: Path) -> None:
+    # Hook stages AGENTS.md automatically so updates are part of the same commit.
     result = subprocess.run(
         ["git", "add", "AGENTS.md"],
         cwd=repo_root,
@@ -50,6 +52,7 @@ def main() -> int:
     try:
         remote_content = build_agents_content()
     except URLError as exc:
+        # Network failures are non-fatal; keep local workflows unblocked.
         print(f"[agents-sync] Warning: Could not download AGENTS fragments: {exc}")
         print("[agents-sync] Continuing without updates.")
         return 0

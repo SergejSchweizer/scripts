@@ -157,6 +157,7 @@ class _ChecksumValidationStrategy:
 
 _STAT_VALIDATION_STRATEGY = _StatValidationStrategy()
 _CHECKSUM_VALIDATION_STRATEGY = _ChecksumValidationStrategy()
+# Centralized default policy keeps per-file sync decisions consistent across runs.
 _DEFAULT_SYNC_UPDATE_POLICY = _DefaultSyncUpdatePolicy()
 
 
@@ -266,6 +267,7 @@ def sync_media_files(
 ) -> list[Path]:
     """Run the copy-and-prune phase of the media sync facade."""
     logger.info("Sync phase: scanning source and destination trees.")
+    # Previous state is used only for policy-aware copy decisions in this phase.
     previous_state = load_state(config.state_file)
     source_files = collect_relative_media_files(config.source_dir, config.extensions)
     dest_files = collect_relative_files(config.dest_dir)
@@ -288,6 +290,7 @@ def sync_media_files(
             continue
 
         previous = previous_state.get(relpath)
+        # Strategy object encapsulates "copy vs preserve" logic and reason codes.
         decision = _DEFAULT_SYNC_UPDATE_POLICY.decide(
             relpath=relpath,
             source_path=source_path,
@@ -329,6 +332,7 @@ def sync_media_files(
     for relpath in sorted(dest_set - source_set):
         full_path = config.dest_dir / relpath
         if full_path.is_file():
+            # Source-of-truth is SOURCE_DIR; destination-only files are stale.
             full_path.unlink()
             logger.info("Deleted stale file: %s", relpath)
 
@@ -370,6 +374,7 @@ def keep_only_english_audio_and_subtitles(
 
     def _record_state_entry(relpath: str, entry: dict[str, Any]) -> None:
         """Persist one verified entry immediately for restart-safe progress."""
+        # Incremental persistence avoids losing long-run progress on interruption.
         next_state[relpath] = entry
         save_state(config.state_file, next_state)
 
@@ -408,6 +413,7 @@ def keep_only_english_audio_and_subtitles(
             and previous.get("policy_version") == FILTER_POLICY_VERSION
             and (not isinstance(previous.get("size"), int) or not isinstance(previous.get("mtime_ns"), int))
         ):
+            # Legacy entries that miss stat fields are migrated in-place once.
             assert previous is not None
             _record_state_entry(
                 relpath,
@@ -450,6 +456,7 @@ def keep_only_english_audio_and_subtitles(
             and previous.get("sha256") == current_checksum
             and previous.get("policy_version") != FILTER_POLICY_VERSION
         ):
+            # Same checksum + older policy version means safe policy bump.
             logger.info(
                 "Upgrading cached verification policy without recheck: %s",
                 file_path,
@@ -466,6 +473,7 @@ def keep_only_english_audio_and_subtitles(
             skipped_verified_count += 1
             continue
         try:
+            # Probe source file only after all cache reuse paths are exhausted.
             streams = probe_streams(file_path)
         except Exception as exc:  # noqa: BLE001
             logger.exception("ffprobe failed for %s: %s", file_path, exc)
@@ -504,6 +512,7 @@ def keep_only_english_audio_and_subtitles(
 
         filtered_count += 1
         try:
+            # Re-probe final file to verify that filtering actually converged.
             updated_streams = probe_streams(file_path)
         except Exception as exc:  # noqa: BLE001
             logger.exception("ffprobe failed while rechecking %s: %s", file_path, exc)
@@ -549,6 +558,7 @@ def keep_only_english_audio_and_subtitles(
         still_non_english_count,
     )
     logger.info("Filter phase: saving state to %s", config.state_file)
+    # Final flush keeps explicit phase-end checkpoint semantics in logs.
     save_state(config.state_file, next_state)
     logger.info("Filter phase: state saved with %s entrie(s).", len(next_state))
 
