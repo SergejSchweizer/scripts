@@ -164,6 +164,7 @@ def _cache_is_eligible_for_reuse(previous: dict[str, Any] | None) -> bool:
     """Fast contract check before strategy-based validation."""
     if previous is None:
         return False
+    # Reuse is gated by policy version so behavior changes force re-validation.
     if previous.get("policy_version") != FILTER_POLICY_VERSION:
         return False
     return bool(previous.get("verified", False))
@@ -231,6 +232,7 @@ def _is_verified_cache_entry_valid(
         return False
     assert previous is not None
 
+    # If checksum is unavailable, only stat-based strategies can run.
     strategies = validation_strategies or _build_cache_validation_strategies(
         "stat_then_checksum" if current_checksum is not None else "stat_only"
     )
@@ -278,6 +280,7 @@ def sync_media_files(
     for relpath in source_files:
         source_path = config.source_dir / relpath
         dest_path = config.dest_dir / relpath
+        # New destination path: copy immediately without policy evaluation.
         if not dest_path.exists():
             copy_file_with_metadata(source_path, dest_path)
             copied_files.append(dest_path)
@@ -365,6 +368,11 @@ def keep_only_english_audio_and_subtitles(
     still_non_english_count = 0
     newly_verified_clean_count = 0
 
+    def _record_state_entry(relpath: str, entry: dict[str, Any]) -> None:
+        """Persist one verified entry immediately for restart-safe progress."""
+        next_state[relpath] = entry
+        save_state(config.state_file, next_state)
+
     for relpath in media_files:
         file_path = config.dest_dir / relpath
         file_stat: os.stat_result = file_path.stat()
@@ -372,6 +380,7 @@ def keep_only_english_audio_and_subtitles(
         current_mtime_ns = file_stat.st_mtime_ns
         previous = previous_state.get(relpath)
         current_checksum: str | None = None
+        # Fast path: verified cache entry is still valid for current file stats.
         if _is_verified_cache_entry_valid(
             previous,
             current_size=current_size,
@@ -379,10 +388,13 @@ def keep_only_english_audio_and_subtitles(
             validation_strategies=validation_strategies,
         ):
             assert previous is not None
-            next_state[relpath] = _upgrade_verified_state_entry(
-                previous,
-                size=current_size,
-                mtime_ns=current_mtime_ns,
+            _record_state_entry(
+                relpath,
+                _upgrade_verified_state_entry(
+                    previous,
+                    size=current_size,
+                    mtime_ns=current_mtime_ns,
+                ),
             )
             logger.info("Skipping already verified file: %s", file_path)
             skipped_verified_count += 1
@@ -397,15 +409,19 @@ def keep_only_english_audio_and_subtitles(
             and (not isinstance(previous.get("size"), int) or not isinstance(previous.get("mtime_ns"), int))
         ):
             assert previous is not None
-            next_state[relpath] = _upgrade_verified_state_entry(
-                previous,
-                size=current_size,
-                mtime_ns=current_mtime_ns,
+            _record_state_entry(
+                relpath,
+                _upgrade_verified_state_entry(
+                    previous,
+                    size=current_size,
+                    mtime_ns=current_mtime_ns,
+                ),
             )
             logger.info("Skipping verified legacy cache entry without checksum: %s", file_path)
             migrated_legacy_count += 1
             continue
 
+        # Only compute checksum on demand to avoid expensive hashing on every file.
         if previous is not None and previous.get("verified", False):
             logger.info("Filter stat cache miss; computing checksum: %s", file_path)
             current_checksum = sha256_file(file_path)
@@ -416,10 +432,13 @@ def keep_only_english_audio_and_subtitles(
             current_checksum=current_checksum,
             validation_strategies=validation_strategies,
         ):
-            next_state[relpath] = _upgrade_verified_state_entry(
-                previous,
-                size=current_size,
-                mtime_ns=current_mtime_ns,
+            _record_state_entry(
+                relpath,
+                _upgrade_verified_state_entry(
+                    previous,
+                    size=current_size,
+                    mtime_ns=current_mtime_ns,
+                ),
             )
             logger.info("Skipping already verified file: %s", file_path)
             skipped_verified_count += 1
@@ -435,10 +454,13 @@ def keep_only_english_audio_and_subtitles(
                 "Upgrading cached verification policy without recheck: %s",
                 file_path,
             )
-            next_state[relpath] = _upgrade_verified_state_entry(
-                previous,
-                size=current_size,
-                mtime_ns=current_mtime_ns,
+            _record_state_entry(
+                relpath,
+                _upgrade_verified_state_entry(
+                    previous,
+                    size=current_size,
+                    mtime_ns=current_mtime_ns,
+                ),
             )
             migrated_legacy_count += 1
             skipped_verified_count += 1
@@ -454,10 +476,13 @@ def keep_only_english_audio_and_subtitles(
         if not non_english_indexes:
             if current_checksum is None:
                 current_checksum = sha256_file(file_path)
-            next_state[relpath] = _build_verified_state_entry(
-                checksum=current_checksum,
-                size=current_size,
-                mtime_ns=current_mtime_ns,
+            _record_state_entry(
+                relpath,
+                _build_verified_state_entry(
+                    checksum=current_checksum,
+                    size=current_size,
+                    mtime_ns=current_mtime_ns,
+                ),
             )
             newly_verified_clean_count += 1
             continue
@@ -467,6 +492,7 @@ def keep_only_english_audio_and_subtitles(
             file_path,
             non_english_indexes[0],
         )
+        # Remux/verify logic lives in utils.media; this layer tracks orchestration outcomes.
         if not filter_to_english_audio_and_subtitles(
             file_path,
             ffmpeg_threads=config.ffmpeg_threads,
@@ -487,10 +513,13 @@ def keep_only_english_audio_and_subtitles(
         remaining_non_english = find_non_english_audio_subtitle_streams(updated_streams)
         if not remaining_non_english:
             updated_stat: os.stat_result = file_path.stat()
-            next_state[relpath] = _build_verified_state_entry(
-                checksum=sha256_file(file_path),
-                size=updated_stat.st_size,
-                mtime_ns=updated_stat.st_mtime_ns,
+            _record_state_entry(
+                relpath,
+                _build_verified_state_entry(
+                    checksum=sha256_file(file_path),
+                    size=updated_stat.st_size,
+                    mtime_ns=updated_stat.st_mtime_ns,
+                ),
             )
             logger.info("Updated file: %s", file_path)
         else:

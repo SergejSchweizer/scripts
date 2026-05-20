@@ -42,6 +42,7 @@ The codebase must be understandable by another engineer without tribal knowledge
 
 - Keep operational docs aligned with code behavior.
 - Do not leave critical behavior changes undocumented.
+- Every important line of code in the repository should include a comment.
 
 ### Logging Consistency
 
