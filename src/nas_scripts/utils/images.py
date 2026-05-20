@@ -70,6 +70,7 @@ def build_destination_dir(
     video_extensions: tuple[str, ...],
 ) -> Path:
     """Map a file to the organizer's `raw/`, `img/`, or `vid/` destination."""
+    # Routing priority is explicit: raw first, then video, then generic image bucket.
     destination = temp_dir / month_folder_name(path)
     if has_extension(path, raw_extensions):
         return destination / "raw"

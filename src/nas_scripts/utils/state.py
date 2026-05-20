@@ -19,6 +19,7 @@ def load_state(state_file: Path) -> dict[str, dict[str, Any]]:
     try:
         return json.loads(state_file.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
+        # Corrupt/unreadable state should not block job execution.
         return {}
 
 
@@ -30,4 +31,5 @@ def save_state(state_file: Path, state: dict[str, dict[str, Any]]) -> None:
         json.dumps(state, indent=2, ensure_ascii=False, sort_keys=True),
         encoding="utf-8",
     )
+    # Atomic replace prevents partial-state reads on interruption.
     tmp_file.replace(state_file)

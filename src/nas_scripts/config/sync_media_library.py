@@ -44,6 +44,8 @@ class SyncMediaLibraryConfig:
 def load_sync_media_library_config() -> SyncMediaLibraryConfig:
     """Factory function that builds the media sync runtime configuration."""
     extensions_raw = os.environ.get("MEDIA_EXTENSIONS")
+    # Normalize once at the config boundary so downstream modules can assume
+    # lower-cased extension tokens.
     extensions = (
         tuple(part.strip().lower() for part in extensions_raw.split(",") if part.strip())
         if extensions_raw

@@ -35,6 +35,7 @@ class FileLock:
         handle = self.lock_path.open("a+")
         try:
             if os.name == "nt":
+                # Windows locking requires a byte-range lock from current offset.
                 handle.seek(0)
                 msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)  # type: ignore[attr-defined]
             else:

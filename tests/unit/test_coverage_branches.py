@@ -19,6 +19,7 @@ from nas_scripts.utils.logging import setup_script_logger
 from nas_scripts.utils.media import (
     MediaCommandAdapter,
     MediaStream,
+    SubprocessMediaCommandAdapter,
     build_stream_map_args,
     filter_to_english_audio_and_subtitles,
     remove_empty_directories,
@@ -92,6 +93,34 @@ def test_probe_streams_parses_ffprobe_output(monkeypatch: pytest.MonkeyPatch, tm
         MediaStream(index=1, codec_type="audio", language="eng"),
         MediaStream(index=2, codec_type="subtitle", language="spa"),
     ]
+
+
+def test_subprocess_media_adapter_sets_safe_text_decoding(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured_calls: list[dict[str, object]] = []
+
+    def fake_run(*args, **kwargs):
+        del args
+        captured_calls.append(kwargs)
+        return DummyResult(returncode=0)
+
+    monkeypatch.setattr("nas_scripts.utils.media.subprocess.run", fake_run)
+    adapter = SubprocessMediaCommandAdapter()
+    source = Path("/tmp/source.mkv")
+    target = Path("/tmp/target.mkv")
+
+    adapter.run_ffprobe(source)
+    adapter.run_ffmpeg_copy(
+        source_path=source,
+        map_args=["-map", "0:0"],
+        target_path=target,
+        ffmpeg_threads=1,
+    )
+
+    assert len(captured_calls) == 2
+    for call in captured_calls:
+        assert call["text"] is True
+        assert call["encoding"] == "utf-8"
+        assert call["errors"] == "replace"
 
 
 def test_filter_to_english_returns_true_when_already_clean(

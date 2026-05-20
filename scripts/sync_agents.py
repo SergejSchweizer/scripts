@@ -24,6 +24,7 @@ def build_agents_content() -> str:
         url = f"{RAW_BASE_URL}/{fragment}"
         print(f"[agents-sync] Downloading {url}")
         parts.append(download_text(url).rstrip())
+    # Keep a single trailing newline for deterministic file content.
     return "\n\n".join(parts) + "\n"
 
 
@@ -58,6 +59,7 @@ def main() -> int:
         return 0
 
     local_content = agents_path.read_text(encoding="utf-8") if agents_path.exists() else ""
+    # No-op when already current to avoid touching git metadata unnecessarily.
     if local_content == remote_content:
         print("[agents-sync] AGENTS.md already up to date.")
         return 0

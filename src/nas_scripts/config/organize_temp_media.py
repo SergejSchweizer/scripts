@@ -69,6 +69,7 @@ def _parse_conflict_policy(value: str | None) -> str:
     normalized = value.strip().lower()
     if normalized in {"overwrite", "skip", "rename"}:
         return normalized
+    # Fall back to the default policy rather than failing startup for a bad env var.
     return DEFAULT_CONFLICT_POLICY
 
 
@@ -81,6 +82,7 @@ def _parse_bool_env(value: str | None, default: bool = False) -> bool:
         return True
     if normalized in {"0", "false", "no", "off"}:
         return False
+    # Unknown tokens keep the caller-provided default for stable behavior.
     return default
 
 

@@ -152,6 +152,7 @@ def probe_streams(file_path: Path) -> list[MediaStream]:
     adapter = _build_media_command_adapter()
     result = adapter.run_ffprobe(file_path)
     streams: list[MediaStream] = []
+    # ffprobe csv rows are `index,codec_type,language` (language may be missing).
     for line in result.stdout.splitlines():
         if not line.strip():
             continue
@@ -189,6 +190,8 @@ def build_stream_map_args(
     """Translate the filtering decision into ffmpeg mapping arguments."""
     excluded_indexes = excluded_indexes or set()
     map_args: list[str] = []
+    # Keep non audio/subtitle streams untouched; filter policy only targets
+    # language-tagged audio/subtitle tracks.
     for stream in streams:
         if stream.index in excluded_indexes:
             continue
@@ -210,7 +213,11 @@ def format_audio_streams(streams: list[MediaStream]) -> str:
 
 
 def format_stream(stream: MediaStream) -> str:
-    """Render a single stream for removal logs."""
+    """Render a single stream for removal logs.
+
+    Output shape is ``index:codec_type:language`` where language falls back
+    to ``unknown`` when ffprobe did not report a tag.
+    """
     return f"{stream.index}:{stream.codec_type}:{stream.language or 'unknown'}"
 
 
@@ -220,7 +227,13 @@ def filter_to_english_audio_and_subtitles(
     ffmpeg_threads: int,
     logger: logging.Logger | None = None,
 ) -> bool:
-    """Remove non-English audio/subtitle streams and verify a fully clean result."""
+    """Remove non-English audio/subtitle streams and verify each pass.
+
+    Behavior:
+    - Removes one non-English audio/subtitle stream per pass.
+    - Probes temporary output before replacing the original file.
+    - Logs removed stream details as ``index:codec_type:language``.
+    """
     max_passes = 20
     temp_file = file_path.with_name(f".nas_scripts_tmp.{file_path.suffix.lstrip('.')}")
     adapter = _build_media_command_adapter()
@@ -247,6 +260,7 @@ def filter_to_english_audio_and_subtitles(
                 )
             return False
 
+        # Remux into a temp file first; original file is replaced only after probe verification.
         result = adapter.run_ffmpeg_copy(
             source_path=file_path,
             map_args=map_args,

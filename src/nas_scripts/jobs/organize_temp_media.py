@@ -89,6 +89,7 @@ def organize_files(config: OrganizeTempMediaConfig, *, logger: logging.Logger) -
         logger.error(message)
         return 1
 
+    # Default mode only scans top-level files; optional mode reprocesses nested layout.
     file_collector = (
         collect_matching_files
         if config.reorganize_existing
@@ -122,6 +123,7 @@ def organize_files(config: OrganizeTempMediaConfig, *, logger: logging.Logger) -
                 print(message, file=sys.stderr)
                 logger.error(message)
                 return 1
+            # Conflict policy is centralized behind a strategy to keep workflow linear.
             resolved_destination = conflict_resolver.resolve(destination_path, logger=logger)
             if resolved_destination is None:
                 continue
@@ -132,6 +134,7 @@ def organize_files(config: OrganizeTempMediaConfig, *, logger: logging.Logger) -
         set_path_timestamp_from_source(destination_dir, destination_path)
         set_path_timestamp_from_source(destination_path, destination_path)
 
+        # Ownership update is best-effort; move should remain successful if chown fails.
         try:
             apply_ownership(
                 destination_dir,

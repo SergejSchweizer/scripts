@@ -18,6 +18,8 @@ def build_parser() -> argparse.ArgumentParser:
         prog="nas-scripts",
         description="Python automation scripts for NAS workflows.",
     )
+    # We intentionally keep dispatch data-driven via subparser defaults so the
+    # CLI layer stays thin and jobs own workflow behavior.
     subparsers = parser.add_subparsers(dest="command")
 
     sync_parser = subparsers.add_parser(
@@ -48,6 +50,7 @@ def main() -> int:
     """Parse CLI arguments and dispatch to the selected job."""
     parser = build_parser()
     args = parser.parse_args()
+    # No command should print help and exit successfully for cron/manual usage.
     handler = getattr(args, "handler", None)
     if handler is None:
         parser.print_help()

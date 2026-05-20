@@ -11,6 +11,7 @@ This repository contains two NAS jobs:
 
 - [Quick Start](#quick-start)
 - [Project Overview](#project-overview)
+- [Developer Guide](#developer-guide)
 - [Jobs](#jobs)
 - [Operational Behavior](#operational-behavior)
 - [Configuration](#configuration)
@@ -52,6 +53,31 @@ The codebase is organized by responsibility:
 | `scripts/` | Thin direct-execution wrappers |
 | `tests/unit/` | Fast unit tests |
 
+Architecture graph:
+
+```text
++---------------------------+
+| CLI / Script Entrypoints  |
+| (__main__.py, scripts/*)  |
++-------------+-------------+
+              |
+              v
++---------------------------+
+| Jobs (workflow facade)    |
+| jobs/sync_media_library   |
+| jobs/organize_temp_media  |
++-------------+-------------+
+              |
+      +-------+--------+
+      |                |
+      v                v
++-------------+  +------------------+
+| Config      |  | Utils            |
+| config/*    |  | media, logging,  |
+|             |  | locking, state   |
++-------------+  +------------------+
+```
+
 Each job follows the same general lifecycle:
 
 1. Load config.
@@ -60,6 +86,12 @@ Each job follows the same general lifecycle:
 4. Run the workflow.
 5. Persist state if needed.
 6. Release the lock.
+
+## Developer Guide
+
+For full developer-facing documentation of every module, script, and test suite, see:
+
+- [`docs/DEVELOPER_GUIDE.md`](/home/vcs/git/nas-scripts/docs/DEVELOPER_GUIDE.md)
 
 ## Jobs
 
@@ -84,6 +116,29 @@ Entry points:
 ```bash
 python -m nas_scripts sync-media-library
 python scripts/sync_media_library.py
+```
+
+Flow graph:
+
+```text
+SOURCE_DIR ---> sync_media_files() -----------+
+                                              |
+                                              v
+                                DEST_DIR (copied/updated files)
+                                              |
+                                              v
+                           keep_only_english_audio_and_subtitles()
+                                              |
+                     +------------------------+----------------------+
+                     |                                               |
+                     v                                               v
+         cache hit -> skip                                 non-English streams
+                                                             -> ffmpeg pass(es)
+                                                             -> verify w/ ffprobe
+                                                             -> replace original
+                                              |
+                                              v
+                                  save state JSON + cleanup temp files
 ```
 
 Important detail:
@@ -133,6 +188,21 @@ Entry points:
 python -m nas_scripts organize-temp-media
 python -m nas_scripts organize-temp-media --reorganize-existing
 python scripts/organize_temp_media.py
+```
+
+Flow graph:
+
+```text
+TEMP_DIR --> collect matching files --> build destination bucket (YYYY-MM/raw|img|vid)
+                                         |
+                                         v
+                            resolve conflicts (overwrite|skip|rename)
+                                         |
+                                         v
+                                       move file
+                                         |
+                                         v
+                           preserve timestamps + optional chown
 ```
 
 ## Operational Behavior
