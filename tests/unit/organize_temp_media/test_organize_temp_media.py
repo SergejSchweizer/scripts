@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from nas_scripts.cli import main as cli_main
@@ -253,6 +254,68 @@ def test_organize_files_moves_downloads_into_month_folder_only(tmp_path: Path) -
     assert not video.exists()
     assert not document.exists()
     assert not bundle.exists()
+
+
+def test_organize_files_preserves_file_modified_timestamp(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+    config.temp_dir.mkdir(parents=True)
+    photo = config.temp_dir / "photo.jpg"
+    photo.write_text("jpg", encoding="utf-8")
+    original_atime_ns = 1_700_000_000_000_000_000
+    original_mtime_ns = 1_600_000_000_123_456_789
+    os.utime(photo, ns=(original_atime_ns, original_mtime_ns))
+    expected_destination = build_destination_dir(
+        photo,
+        temp_dir=config.temp_dir,
+        raw_extensions=config.raw_extensions,
+        video_extensions=config.video_extensions,
+    ) / photo.name
+    logger = setup_script_logger(
+        f"organize_temp_media_timestamps_{tmp_path.name}",
+        config.log_file,
+    )
+
+    assert organize_files(config, logger=logger) == 0
+
+    destination_stat = expected_destination.stat()
+    assert destination_stat.st_atime_ns == original_atime_ns
+    assert destination_stat.st_mtime_ns == original_mtime_ns
+
+
+def test_organize_files_preserves_directory_modified_timestamp(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+    config = OrganizeTempMediaConfig(
+        script_name="organize_temp_downloads",
+        temp_dir=config.temp_dir,
+        lock_file=config.lock_file,
+        log_dir=config.log_dir,
+        reorganize_existing=config.reorganize_existing,
+        file_extensions=("*",),
+        raw_extensions=config.raw_extensions,
+        video_extensions=config.video_extensions,
+        owner_user=config.owner_user,
+        owner_group=config.owner_group,
+        conflict_policy=config.conflict_policy,
+        destination_layout="month_only",
+    )
+    config.temp_dir.mkdir(parents=True)
+    bundle = config.temp_dir / "download_bundle"
+    bundle.mkdir()
+    (bundle / "nested.txt").write_text("nested", encoding="utf-8")
+    original_atime_ns = 1_700_000_000_000_000_000
+    original_mtime_ns = 1_600_000_000_123_456_789
+    os.utime(bundle, ns=(original_atime_ns, original_mtime_ns))
+    expected_destination = config.temp_dir / month_folder_name(bundle) / bundle.name
+    logger = setup_script_logger(
+        f"organize_temp_downloads_dir_timestamps_{tmp_path.name}",
+        config.log_file,
+    )
+
+    assert organize_files(config, logger=logger) == 0
+
+    destination_stat = expected_destination.stat()
+    assert destination_stat.st_atime_ns == original_atime_ns
+    assert destination_stat.st_mtime_ns == original_mtime_ns
 
 
 def test_organize_files_overwrites_existing_destination_file(tmp_path: Path) -> None:

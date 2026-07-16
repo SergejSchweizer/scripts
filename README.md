@@ -175,6 +175,7 @@ Behavior:
 | Output | `organize-temp-media`: `YYYY-MM/raw`, `YYYY-MM/img`, or `YYYY-MM/vid`; `organize-temp-downloads`: `YYYY-MM` only |
 | Default scan mode | Top-level files only for media; top-level files and non-month directories for downloads |
 | Optional scan mode | `--reorganize-existing` scans nested legacy folders too |
+| Timestamps | Moved files and directories keep their original access and modified timestamps where the filesystem permits it |
 | Safety | Uses a lock file to prevent overlapping runs |
 
 Entry points:
@@ -395,6 +396,8 @@ Some media-sync tests depend on local fixture files under `tests/data/sync_media
 If that directory is missing, those fixture-dependent tests are skipped automatically.
 
 ## Known Limitations
+
+- Linux exposes `ctime` as metadata-change time, not portable creation time. The organizer preserves original access and modified timestamps, but true creation/birth time can only be retained when the underlying filesystem and runtime preserve it during the move.
 
 ## Development Rules
 

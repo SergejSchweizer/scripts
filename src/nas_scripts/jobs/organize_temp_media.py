@@ -19,12 +19,13 @@ from nas_scripts.config.organize_temp_media import (
 )
 from nas_scripts.utils.images import (
     apply_ownership,
+    apply_path_timestamps,
     build_destination_dir,
+    capture_path_timestamps,
     collect_matching_files,
     collect_top_level_matching_files,
     collect_top_level_matching_items,
     month_folder_name,
-    set_path_timestamp_from_source,
 )
 from nas_scripts.utils.job import run_locked_job
 
@@ -119,6 +120,7 @@ def organize_files(config: OrganizeTempMediaConfig, *, logger: logging.Logger) -
         return 0
 
     for source_path in items:
+        source_timestamps = capture_path_timestamps(source_path)
         destination_dir = _build_destination_dir(source_path, config)
         destination_path = destination_dir / source_path.name
 
@@ -155,9 +157,8 @@ def organize_files(config: OrganizeTempMediaConfig, *, logger: logging.Logger) -
         # shutil.move handles cross-device moves by falling back to copy+unlink.
         shutil.move(str(source_path), str(destination_path))
 
-        # Keep destination folder/file timestamps aligned with moved file metadata.
-        set_path_timestamp_from_source(destination_dir, destination_path)
-        set_path_timestamp_from_source(destination_path, destination_path)
+        # Keep destination folder/item timestamps aligned with source metadata.
+        apply_path_timestamps(destination_dir, source_timestamps)
 
         # Ownership update is best-effort; move should remain successful if chown fails.
         try:
@@ -173,6 +174,8 @@ def organize_files(config: OrganizeTempMediaConfig, *, logger: logging.Logger) -
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning("Failed to apply ownership to %s: %s", destination_path, exc)
+
+        apply_path_timestamps(destination_path, source_timestamps)
 
         logger.info("Moved %s to %s", source_path, destination_path)
 
