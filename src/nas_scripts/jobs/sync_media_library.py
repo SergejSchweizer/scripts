@@ -9,11 +9,10 @@ runs.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import logging
-import os
 import time
 from pathlib import Path
-from typing import Any
 
 from nas_scripts.config.sync_media_library import (
     SyncMediaLibraryConfig,
@@ -35,11 +34,310 @@ from nas_scripts.utils.state import load_state, save_state
 from nas_scripts.utils.verification_cache import (
     DEFAULT_SYNC_UPDATE_POLICY,
     FILTER_POLICY_VERSION,
+    VerificationState,
+    VerifiedStateEntry,
     build_cache_validation_strategies,
     build_verified_state_entry,
     is_verified_cache_entry_valid,
     upgrade_verified_state_entry,
 )
+
+
+@dataclass
+class FilterStats:
+    """Counters emitted by the media filter phase."""
+
+    skipped_verified: int = 0
+    migrated_legacy: int = 0
+    ffprobe_failures: int = 0
+    filtered: int = 0
+    filter_failures: int = 0
+    remaining_non_english: int = 0
+    newly_verified_clean: int = 0
+
+
+class MediaFilterProcessor:
+    """Per-file processor for English-only stream filtering and cache updates."""
+
+    def __init__(self, config: SyncMediaLibraryConfig, *, logger: logging.Logger) -> None:
+        """Create a processor bound to one sync config and logger."""
+        self.config = config
+        self.logger = logger
+        self.previous_state = load_state(config.state_file)
+        self.next_state: VerificationState = {}
+        self.validation_strategies = build_cache_validation_strategies(config.cache_validation_mode)
+        self.stats = FilterStats()
+
+    def run(self) -> None:
+        """Process all destination media files and persist the next cache state."""
+        self.logger.info("Filter phase: loading state from %s", self.config.state_file)
+        self.logger.info("Filter phase: cache validation mode=%s", self.config.cache_validation_mode)
+        media_files = collect_relative_media_files(self.config.dest_dir, self.config.extensions)
+        self.logger.info(
+            "Checking %s media file(s) for non-English audio/subtitle streams.",
+            len(media_files),
+        )
+
+        for relpath in media_files:
+            self.process_file(relpath)
+
+        for temp_file in remove_leftover_temp_files(self.config.dest_dir):
+            self.logger.info("Removed leftover temp file: %s", temp_file)
+
+        self.logger.info(
+            (
+                "Filter phase summary: media_files=%s skipped_verified=%s "
+                "migrated_legacy=%s newly_verified_clean=%s filtered=%s "
+                "ffprobe_failures=%s filter_failures=%s remaining_non_english=%s"
+            ),
+            len(media_files),
+            self.stats.skipped_verified,
+            self.stats.migrated_legacy,
+            self.stats.newly_verified_clean,
+            self.stats.filtered,
+            self.stats.ffprobe_failures,
+            self.stats.filter_failures,
+            self.stats.remaining_non_english,
+        )
+        self.logger.info("Filter phase: saving state to %s", self.config.state_file)
+        save_state(self.config.state_file, self.next_state)
+        self.logger.info("Filter phase: state saved with %s entrie(s).", len(self.next_state))
+
+    def process_file(self, relpath: str) -> None:
+        """Process one destination media file through cache, probe, and filter decisions."""
+        file_path = self.config.dest_dir / relpath
+        file_stat = file_path.stat()
+        current_size = file_stat.st_size
+        current_mtime_ns = file_stat.st_mtime_ns
+        previous = self.previous_state.get(relpath)
+        current_checksum: str | None = None
+
+        if self._reuse_current_cache(relpath, previous, current_size, current_mtime_ns):
+            self.logger.info("Skipping already verified file: %s", file_path)
+            self.stats.skipped_verified += 1
+            return
+
+        if self._migrate_legacy_stat_entry(relpath, previous, current_size, current_mtime_ns):
+            self.logger.info("Skipping verified legacy cache entry without checksum: %s", file_path)
+            self.stats.migrated_legacy += 1
+            return
+
+        if previous is not None and previous.get("verified", False):
+            self.logger.info("Filter stat cache miss; computing checksum: %s", file_path)
+            current_checksum = sha256_file(file_path)
+
+        if self._reuse_cache_with_checksum(
+            relpath,
+            previous,
+            current_size,
+            current_mtime_ns,
+            current_checksum,
+        ):
+            self.logger.info("Skipping already verified file: %s", file_path)
+            self.stats.skipped_verified += 1
+            return
+
+        if self._upgrade_outdated_policy(
+            relpath,
+            previous,
+            current_size,
+            current_mtime_ns,
+            current_checksum,
+        ):
+            self.stats.migrated_legacy += 1
+            self.stats.skipped_verified += 1
+            return
+
+        try:
+            streams = probe_streams(file_path)
+        except Exception as exc:  # noqa: BLE001
+            self.logger.exception("ffprobe failed for %s: %s", file_path, exc)
+            self.stats.ffprobe_failures += 1
+            return
+
+        non_english_indexes = find_non_english_audio_subtitle_streams(streams)
+        if not non_english_indexes:
+            if current_checksum is None:
+                current_checksum = sha256_file(file_path)
+            self._record_state_entry(
+                relpath,
+                build_verified_state_entry(
+                    checksum=current_checksum,
+                    size=current_size,
+                    mtime_ns=current_mtime_ns,
+                ),
+            )
+            self.stats.newly_verified_clean += 1
+            return
+
+        self._filter_non_english_streams(relpath, file_path, non_english_indexes)
+
+    def _record_state_entry(self, relpath: str, entry: VerifiedStateEntry) -> None:
+        """Persist one verified entry immediately for restart-safe progress."""
+        self.next_state[relpath] = entry
+        save_state(self.config.state_file, self.next_state)
+
+    def _reuse_current_cache(
+        self,
+        relpath: str,
+        previous: VerifiedStateEntry | None,
+        current_size: int,
+        current_mtime_ns: int,
+    ) -> bool:
+        """Reuse a current-policy cache entry that matches file stat metadata."""
+        if not is_verified_cache_entry_valid(
+            previous,
+            current_size=current_size,
+            current_mtime_ns=current_mtime_ns,
+            validation_strategies=self.validation_strategies,
+        ):
+            return False
+        assert previous is not None
+        self._record_state_entry(
+            relpath,
+            upgrade_verified_state_entry(
+                previous,
+                size=current_size,
+                mtime_ns=current_mtime_ns,
+            ),
+        )
+        return True
+
+    def _migrate_legacy_stat_entry(
+        self,
+        relpath: str,
+        previous: VerifiedStateEntry | None,
+        current_size: int,
+        current_mtime_ns: int,
+    ) -> bool:
+        """Migrate current-policy verified entries that predate stat fields."""
+        if not (
+            previous is not None
+            and previous.get("verified", False)
+            and previous.get("policy_version") == FILTER_POLICY_VERSION
+            and (
+                not isinstance(previous.get("size"), int)
+                or not isinstance(previous.get("mtime_ns"), int)
+            )
+        ):
+            return False
+        self._record_state_entry(
+            relpath,
+            upgrade_verified_state_entry(
+                previous,
+                size=current_size,
+                mtime_ns=current_mtime_ns,
+            ),
+        )
+        return True
+
+    def _reuse_cache_with_checksum(
+        self,
+        relpath: str,
+        previous: VerifiedStateEntry | None,
+        current_size: int,
+        current_mtime_ns: int,
+        current_checksum: str | None,
+    ) -> bool:
+        """Reuse a cache entry after checksum reconciliation."""
+        if not is_verified_cache_entry_valid(
+            previous,
+            current_size=current_size,
+            current_mtime_ns=current_mtime_ns,
+            current_checksum=current_checksum,
+            validation_strategies=self.validation_strategies,
+        ):
+            return False
+        assert previous is not None
+        self._record_state_entry(
+            relpath,
+            upgrade_verified_state_entry(
+                previous,
+                size=current_size,
+                mtime_ns=current_mtime_ns,
+            ),
+        )
+        return True
+
+    def _upgrade_outdated_policy(
+        self,
+        relpath: str,
+        previous: VerifiedStateEntry | None,
+        current_size: int,
+        current_mtime_ns: int,
+        current_checksum: str | None,
+    ) -> bool:
+        """Upgrade same-checksum entries from older filter policy versions."""
+        if not (
+            previous is not None
+            and current_checksum is not None
+            and previous.get("sha256") == current_checksum
+            and previous.get("policy_version") != FILTER_POLICY_VERSION
+        ):
+            return False
+        self.logger.info(
+            "Upgrading cached verification policy without recheck: %s",
+            self.config.dest_dir / relpath,
+        )
+        self._record_state_entry(
+            relpath,
+            upgrade_verified_state_entry(
+                previous,
+                size=current_size,
+                mtime_ns=current_mtime_ns,
+            ),
+        )
+        return True
+
+    def _filter_non_english_streams(
+        self,
+        relpath: str,
+        file_path: Path,
+        non_english_indexes: list[int],
+    ) -> None:
+        """Filter one file and record verification results when filtering converges."""
+        self.logger.info(
+            "Filtering %s to remove non-English audio/subtitle streams. First stream: %s",
+            file_path,
+            non_english_indexes[0],
+        )
+        if not filter_to_english_audio_and_subtitles(
+            file_path,
+            ffmpeg_threads=self.config.ffmpeg_threads,
+            logger=self.logger,
+        ):
+            self.logger.error("Failed to process %s", file_path)
+            self.stats.filter_failures += 1
+            return
+
+        self.stats.filtered += 1
+        try:
+            updated_streams = probe_streams(file_path)
+        except Exception as exc:  # noqa: BLE001
+            self.logger.exception("ffprobe failed while rechecking %s: %s", file_path, exc)
+            self.stats.ffprobe_failures += 1
+            return
+
+        remaining_non_english = find_non_english_audio_subtitle_streams(updated_streams)
+        if not remaining_non_english:
+            updated_stat = file_path.stat()
+            self._record_state_entry(
+                relpath,
+                build_verified_state_entry(
+                    checksum=sha256_file(file_path),
+                    size=updated_stat.st_size,
+                    mtime_ns=updated_stat.st_mtime_ns,
+                ),
+            )
+            self.logger.info("Updated file: %s", file_path)
+            return
+
+        self.stats.remaining_non_english += 1
+        self.logger.info(
+            "Updated file: %s. Remaining non-English stream(s): %s",
+            file_path,
+            ",".join(str(index) for index in remaining_non_english),
+        )
 
 
 def sync_media_files(
@@ -136,213 +434,7 @@ def keep_only_english_audio_and_subtitles(
     logger: logging.Logger,
 ) -> None:
     """Run the post-copy filtering phase that preserves English tracks."""
-    logger.info("Filter phase: loading state from %s", config.state_file)
-    previous_state = load_state(config.state_file)
-    next_state: dict[str, dict[str, Any]] = {}
-    validation_strategies = build_cache_validation_strategies(config.cache_validation_mode)
-    logger.info("Filter phase: cache validation mode=%s", config.cache_validation_mode)
-    media_files = collect_relative_media_files(config.dest_dir, config.extensions)
-    logger.info(
-        "Checking %s media file(s) for non-English audio/subtitle streams.",
-        len(media_files),
-    )
-    skipped_verified_count = 0
-    migrated_legacy_count = 0
-    ffprobe_fail_count = 0
-    filtered_count = 0
-    filter_fail_count = 0
-    still_non_english_count = 0
-    newly_verified_clean_count = 0
-
-    def _record_state_entry(relpath: str, entry: dict[str, Any]) -> None:
-        """Persist one verified entry immediately for restart-safe progress."""
-        # Incremental persistence avoids losing long-run progress on interruption.
-        next_state[relpath] = entry
-        save_state(config.state_file, next_state)
-
-    for relpath in media_files:
-        file_path = config.dest_dir / relpath
-        file_stat: os.stat_result = file_path.stat()
-        current_size = file_stat.st_size
-        current_mtime_ns = file_stat.st_mtime_ns
-        previous = previous_state.get(relpath)
-        current_checksum: str | None = None
-        # Fast path: verified cache entry is still valid for current file stats.
-        if is_verified_cache_entry_valid(
-            previous,
-            current_size=current_size,
-            current_mtime_ns=current_mtime_ns,
-            validation_strategies=validation_strategies,
-        ):
-            assert previous is not None
-            _record_state_entry(
-                relpath,
-                upgrade_verified_state_entry(
-                    previous,
-                    size=current_size,
-                    mtime_ns=current_mtime_ns,
-                ),
-            )
-            logger.info("Skipping already verified file: %s", file_path)
-            skipped_verified_count += 1
-            continue
-
-        # One-time migration path for legacy entries that are already verified
-        # under current policy but miss stat fields; avoid expensive re-hashing.
-        if (
-            previous is not None
-            and previous.get("verified", False)
-            and previous.get("policy_version") == FILTER_POLICY_VERSION
-            and (not isinstance(previous.get("size"), int) or not isinstance(previous.get("mtime_ns"), int))
-        ):
-            # Legacy entries that miss stat fields are migrated in-place once.
-            assert previous is not None
-            _record_state_entry(
-                relpath,
-                upgrade_verified_state_entry(
-                    previous,
-                    size=current_size,
-                    mtime_ns=current_mtime_ns,
-                ),
-            )
-            logger.info("Skipping verified legacy cache entry without checksum: %s", file_path)
-            migrated_legacy_count += 1
-            continue
-
-        # Only compute checksum on demand to avoid expensive hashing on every file.
-        if previous is not None and previous.get("verified", False):
-            logger.info("Filter stat cache miss; computing checksum: %s", file_path)
-            current_checksum = sha256_file(file_path)
-        if previous is not None and is_verified_cache_entry_valid(
-            previous,
-            current_size=current_size,
-            current_mtime_ns=current_mtime_ns,
-            current_checksum=current_checksum,
-            validation_strategies=validation_strategies,
-        ):
-            _record_state_entry(
-                relpath,
-                upgrade_verified_state_entry(
-                    previous,
-                    size=current_size,
-                    mtime_ns=current_mtime_ns,
-                ),
-            )
-            logger.info("Skipping already verified file: %s", file_path)
-            skipped_verified_count += 1
-            continue
-
-        if (
-            previous is not None
-            and current_checksum is not None
-            and previous.get("sha256") == current_checksum
-            and previous.get("policy_version") != FILTER_POLICY_VERSION
-        ):
-            # Same checksum + older policy version means safe policy bump.
-            logger.info(
-                "Upgrading cached verification policy without recheck: %s",
-                file_path,
-            )
-            _record_state_entry(
-                relpath,
-                upgrade_verified_state_entry(
-                    previous,
-                    size=current_size,
-                    mtime_ns=current_mtime_ns,
-                ),
-            )
-            migrated_legacy_count += 1
-            skipped_verified_count += 1
-            continue
-        try:
-            # Probe source file only after all cache reuse paths are exhausted.
-            streams = probe_streams(file_path)
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("ffprobe failed for %s: %s", file_path, exc)
-            ffprobe_fail_count += 1
-            continue
-
-        non_english_indexes = find_non_english_audio_subtitle_streams(streams)
-        if not non_english_indexes:
-            if current_checksum is None:
-                current_checksum = sha256_file(file_path)
-            _record_state_entry(
-                relpath,
-                build_verified_state_entry(
-                    checksum=current_checksum,
-                    size=current_size,
-                    mtime_ns=current_mtime_ns,
-                ),
-            )
-            newly_verified_clean_count += 1
-            continue
-
-        logger.info(
-            "Filtering %s to remove non-English audio/subtitle streams. First stream: %s",
-            file_path,
-            non_english_indexes[0],
-        )
-        # Remux/verify logic lives in utils.media; this layer tracks orchestration outcomes.
-        if not filter_to_english_audio_and_subtitles(
-            file_path,
-            ffmpeg_threads=config.ffmpeg_threads,
-            logger=logger,
-        ):
-            logger.error("Failed to process %s", file_path)
-            filter_fail_count += 1
-            continue
-
-        filtered_count += 1
-        try:
-            # Re-probe final file to verify that filtering actually converged.
-            updated_streams = probe_streams(file_path)
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("ffprobe failed while rechecking %s: %s", file_path, exc)
-            ffprobe_fail_count += 1
-            continue
-
-        remaining_non_english = find_non_english_audio_subtitle_streams(updated_streams)
-        if not remaining_non_english:
-            updated_stat: os.stat_result = file_path.stat()
-            _record_state_entry(
-                relpath,
-                build_verified_state_entry(
-                    checksum=sha256_file(file_path),
-                    size=updated_stat.st_size,
-                    mtime_ns=updated_stat.st_mtime_ns,
-                ),
-            )
-            logger.info("Updated file: %s", file_path)
-        else:
-            still_non_english_count += 1
-            logger.info(
-                "Updated file: %s. Remaining non-English stream(s): %s",
-                file_path,
-                ",".join(str(index) for index in remaining_non_english),
-            )
-
-    for temp_file in remove_leftover_temp_files(config.dest_dir):
-        logger.info("Removed leftover temp file: %s", temp_file)
-
-    logger.info(
-        (
-            "Filter phase summary: media_files=%s skipped_verified=%s "
-            "migrated_legacy=%s newly_verified_clean=%s filtered=%s "
-            "ffprobe_failures=%s filter_failures=%s remaining_non_english=%s"
-        ),
-        len(media_files),
-        skipped_verified_count,
-        migrated_legacy_count,
-        newly_verified_clean_count,
-        filtered_count,
-        ffprobe_fail_count,
-        filter_fail_count,
-        still_non_english_count,
-    )
-    logger.info("Filter phase: saving state to %s", config.state_file)
-    # Final flush keeps explicit phase-end checkpoint semantics in logs.
-    save_state(config.state_file, next_state)
-    logger.info("Filter phase: state saved with %s entrie(s).", len(next_state))
+    MediaFilterProcessor(config, logger=logger).run()
 
 
 def run_job(config: SyncMediaLibraryConfig, *, logger: logging.Logger) -> int:

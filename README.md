@@ -49,9 +49,9 @@ The codebase is organized by responsibility:
 | `src/nas_scripts/__main__.py` | `python -m nas_scripts` entrypoint |
 | `src/nas_scripts/config/` | Environment-driven runtime config |
 | `src/nas_scripts/jobs/` | Job orchestration and workflow logic |
-| `src/nas_scripts/utils/` | Shared helpers for files, logging, locking, media, and state |
+| `src/nas_scripts/utils/` | Shared helpers for extensions, file metadata, organizer paths, logging, locking, media commands, and state |
 | `scripts/` | Thin direct-execution wrappers |
-| `tests/unit/` | Fast unit tests |
+| `tests/unit/` | Fast unit tests grouped by config, jobs, utilities, and script behavior |
 
 Architecture graph:
 
@@ -201,7 +201,11 @@ TEMP_DIR --> collect matching items --> build destination bucket (YYYY-MM or YYY
                                        move file
                                          |
                                          v
-                           preserve timestamps + optional chown
+                            preserve timestamps + optional chown
+
+Implementation note: organizer jobs build explicit move plans before mutating
+the filesystem, so conflict policy, routing, timestamp restoration, and
+ownership handling remain independently testable.
 ```
 
 ## Operational Behavior

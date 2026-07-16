@@ -4,10 +4,23 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol, TypedDict
 
 
 FILTER_POLICY_VERSION = 3
+
+
+class VerifiedStateEntry(TypedDict, total=False):
+    """Persisted verification cache entry for one media file."""
+
+    sha256: str
+    verified: bool
+    policy_version: int
+    size: int
+    mtime_ns: int
+
+
+VerificationState = dict[str, VerifiedStateEntry]
 
 
 class CacheValidationStrategy(Protocol):
@@ -15,7 +28,7 @@ class CacheValidationStrategy(Protocol):
 
     def is_valid(
         self,
-        previous: dict[str, Any],
+        previous: VerifiedStateEntry,
         *,
         current_size: int,
         current_mtime_ns: int,
@@ -41,7 +54,7 @@ class SyncUpdatePolicy(Protocol):
         relpath: str,
         source_path: Path,
         dest_path: Path,
-        previous: dict[str, Any] | None,
+        previous: VerifiedStateEntry | None,
     ) -> SyncUpdateDecision:
         """Return whether to copy and why."""
 
@@ -55,7 +68,7 @@ class DefaultSyncUpdatePolicy:
         relpath: str,
         source_path: Path,
         dest_path: Path,
-        previous: dict[str, Any] | None,
+        previous: VerifiedStateEntry | None,
     ) -> SyncUpdateDecision:
         del relpath
         if files_are_definitely_equal_by_stat(source_path, dest_path):
@@ -89,7 +102,7 @@ class StatValidationStrategy:
 
     def is_valid(
         self,
-        previous: dict[str, Any],
+        previous: VerifiedStateEntry,
         *,
         current_size: int,
         current_mtime_ns: int,
@@ -112,7 +125,7 @@ class ChecksumValidationStrategy:
 
     def is_valid(
         self,
-        previous: dict[str, Any],
+        previous: VerifiedStateEntry,
         *,
         current_size: int,
         current_mtime_ns: int,
@@ -129,7 +142,7 @@ _CHECKSUM_VALIDATION_STRATEGY = ChecksumValidationStrategy()
 DEFAULT_SYNC_UPDATE_POLICY = DefaultSyncUpdatePolicy()
 
 
-def cache_is_eligible_for_reuse(previous: dict[str, Any] | None) -> bool:
+def cache_is_eligible_for_reuse(previous: VerifiedStateEntry | None) -> bool:
     """Fast contract check before strategy-based validation."""
     if previous is None:
         return False
@@ -138,7 +151,7 @@ def cache_is_eligible_for_reuse(previous: dict[str, Any] | None) -> bool:
     return bool(previous.get("verified", False))
 
 
-def is_verified_state_entry(previous: dict[str, Any] | None) -> bool:
+def is_verified_state_entry(previous: VerifiedStateEntry | None) -> bool:
     """Check whether a state entry marks a file as verified, independent of policy version."""
     if previous is None:
         return False
@@ -159,7 +172,7 @@ def build_verified_state_entry(
     checksum: str,
     size: int,
     mtime_ns: int,
-) -> dict[str, Any]:
+) -> VerifiedStateEntry:
     """Construct a normalized cache entry for a verified media file."""
     return {
         "sha256": checksum,
@@ -171,11 +184,11 @@ def build_verified_state_entry(
 
 
 def upgrade_verified_state_entry(
-    previous: dict[str, Any],
+    previous: VerifiedStateEntry,
     *,
     size: int,
     mtime_ns: int,
-) -> dict[str, Any]:
+) -> VerifiedStateEntry:
     """Upgrade a verified cache entry to the current policy version."""
     return {
         **previous,
@@ -187,7 +200,7 @@ def upgrade_verified_state_entry(
 
 
 def is_verified_cache_entry_valid(
-    previous: dict[str, Any] | None,
+    previous: VerifiedStateEntry | None,
     *,
     current_size: int,
     current_mtime_ns: int,

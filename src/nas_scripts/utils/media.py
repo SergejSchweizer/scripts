@@ -11,9 +11,10 @@ import logging
 import shutil
 import subprocess
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
+
+from nas_scripts.utils.extensions import has_extension
 
 
 @dataclass(frozen=True)
@@ -98,13 +99,7 @@ def _build_media_command_adapter() -> MediaCommandAdapter:
 
 def is_media_file(path: Path, extensions: tuple[str, ...]) -> bool:
     """Decide whether a file should enter the media sync workflow."""
-    return path.suffix.lower().lstrip(".") in _normalized_extensions(extensions)
-
-
-@lru_cache(maxsize=32)
-def _normalized_extensions(extensions: tuple[str, ...]) -> frozenset[str]:
-    """Normalize extension tuple once for repeated membership checks."""
-    return frozenset(ext.lower() for ext in extensions)
+    return has_extension(path, extensions)
 
 
 def collect_relative_media_files(root: Path, extensions: tuple[str, ...]) -> list[str]:
