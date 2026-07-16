@@ -4,12 +4,6 @@ set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
-if [[ -x "$REPO_ROOT/.venv/bin/python" ]]; then
-  PYTHON="$REPO_ROOT/.venv/bin/python"
-else
-  PYTHON="python3"
-fi
-
 if [[ -x "$REPO_ROOT/.venv/bin/ruff" ]]; then
   RUFF="$REPO_ROOT/.venv/bin/ruff"
 else
@@ -27,9 +21,6 @@ if [[ -x "$REPO_ROOT/.venv/bin/pytest" ]]; then
 else
   PYTEST="pytest"
 fi
-
-echo "Running agents sync..."
-"$PYTHON" scripts/sync_agents.py
 
 echo "Running Ruff..."
 "$RUFF" check --fix .

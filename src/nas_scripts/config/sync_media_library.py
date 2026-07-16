@@ -15,7 +15,7 @@ from pathlib import Path
 DEFAULT_SOURCE_DIR = Path("/volume1/Torrents")
 DEFAULT_DEST_DIR = Path("/volume1/Media")
 DEFAULT_LOCK_FILE = Path("/tmp/media.lock")
-DEFAULT_LOG_DIR = Path("/volume1/Temp/logs")
+DEFAULT_LOG_DIR = Path("/volume1/Temp/.logs")
 DEFAULT_STATE_FILE = DEFAULT_LOG_DIR / "sync_media_library.state.json"
 DEFAULT_EXTENSIONS = ("mpg", "avi", "mp4", "mkv")
 DEFAULT_CACHE_VALIDATION_MODE = "stat_then_checksum"

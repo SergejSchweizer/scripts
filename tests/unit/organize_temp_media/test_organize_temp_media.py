@@ -36,7 +36,7 @@ def make_config(tmp_path: Path) -> OrganizeTempMediaConfig:
         script_name="organize_temp_media",
         temp_dir=tmp_path / "temp",
         lock_file=tmp_path / "organize_temp_media.lock",
-        log_dir=tmp_path / "logs",
+        log_dir=tmp_path / ".logs",
         reorganize_existing=False,
         file_extensions=("jpg", "JPG", "arw", "ARW", "mp4", "MP4"),
         raw_extensions=("arw", "ARW"),

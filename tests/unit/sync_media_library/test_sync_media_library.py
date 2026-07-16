@@ -38,8 +38,8 @@ def make_config(tmp_path: Path) -> SyncMediaLibraryConfig:
         source_dir=tmp_path / "source",
         dest_dir=tmp_path / "dest",
         lock_file=tmp_path / "media.lock",
-        log_dir=tmp_path / "logs",
-        state_file=tmp_path / "logs" / "sync_media_library.state.json",
+        log_dir=tmp_path / ".logs",
+        state_file=tmp_path / ".logs" / "sync_media_library.state.json",
         extensions=("mpg", "avi", "mp4", "mkv"),
         ffmpeg_threads=1,
     )
@@ -710,7 +710,7 @@ def test_filter_to_english_audio_and_subtitles_verifies_output_before_replacing(
 ) -> None:
     file_path = tmp_path / "movie.mkv"
     file_path.write_text("original", encoding="utf-8")
-    log_file = tmp_path / "logs" / "sync.log"
+    log_file = tmp_path / ".logs" / "sync.log"
     logger = setup_script_logger("sync_verify_success", log_file)
 
     probe_calls = {"source": 0, "temp": 0}
@@ -802,7 +802,7 @@ def test_filter_to_english_audio_and_subtitles_rejects_unverified_output(
 ) -> None:
     file_path = tmp_path / "movie.mkv"
     file_path.write_text("original", encoding="utf-8")
-    log_file = tmp_path / "logs" / "sync.log"
+    log_file = tmp_path / ".logs" / "sync.log"
     logger = setup_script_logger("sync_verify_failure", log_file)
 
     def fake_probe(path: Path) -> list[MediaStream]:
@@ -962,8 +962,8 @@ def test_sync_media_files_with_real_fixture_names_without_copying_large_files(
         source_dir=fixture_root,
         dest_dir=tmp_path / "dest",
         lock_file=tmp_path / "media.lock",
-        log_dir=tmp_path / "logs",
-        state_file=tmp_path / "logs" / "sync_media_library.state.json",
+        log_dir=tmp_path / ".logs",
+        state_file=tmp_path / ".logs" / "sync_media_library.state.json",
         extensions=("mpg", "avi", "mp4", "mkv"),
         ffmpeg_threads=1,
     )

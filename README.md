@@ -220,7 +220,7 @@ Logging:
 
 - Each job writes to its own log file under `LOG_DIR`.
 - Logs use a shared format with timestamp, level, script name, and process id.
-- If the configured log directory cannot be created, the logger falls back to a local `./logs/` directory when possible.
+- If the configured log directory cannot be created, the logger falls back to a local `./.logs/` directory when possible.
 
 State:
 
@@ -246,8 +246,8 @@ Defaults:
 - `SOURCE_DIR`: `/volume1/Torrents`
 - `DEST_DIR`: `/volume1/Media`
 - `LOCK_FILE`: `/tmp/media.lock`
-- `LOG_DIR`: `/volume1/Temp/logs`
-- `STATE_FILE`: `/volume1/Temp/logs/sync_media_library.state.json`
+- `LOG_DIR`: `/volume1/Temp/.logs`
+- `STATE_FILE`: `/volume1/Temp/.logs/sync_media_library.state.json`
 
 ### Temp Media Organizer
 
@@ -268,7 +268,7 @@ Defaults:
 
 - `TEMP_DIR`: `/volume1/Temp/Fotos` for `organize-temp-media`, `/volume1/Temp/Downloads` for `organize-temp-downloads`
 - `LOCK_FILE`: `/tmp/organize_temp_media.lock` for `organize-temp-media`, `/tmp/organize_temp_downloads.lock` for `organize-temp-downloads`
-- `LOG_DIR`: `/volume1/Temp/logs`
+- `LOG_DIR`: `/volume1/Temp/.logs`
 - `CONFLICT_POLICY`: `overwrite`
 
 Notes:

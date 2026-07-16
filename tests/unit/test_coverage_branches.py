@@ -282,7 +282,7 @@ def test_setup_logger_falls_back_to_cwd_logs(monkeypatch: pytest.MonkeyPatch, tm
     logger = setup_script_logger("fallback_test", primary_log)
     assert len(logger.handlers) >= 2
     assert calls[0] == primary_log
-    assert calls[1] == workdir / "logs" / "fallback_test.log"
+    assert calls[1] == workdir / ".logs" / "fallback_test.log"
 
 
 def test_setup_logger_handles_both_file_paths_failing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -291,7 +291,7 @@ def test_setup_logger_handles_both_file_paths_failing(monkeypatch: pytest.Monkey
         lambda *args, **_kwargs: (_ for _ in ()).throw(OSError("nope")),
     )
     monkeypatch.chdir(tmp_path)
-    logger = setup_script_logger("no_file_test", Path("/nonwritable/logs/no_file_test.log"))
+    logger = setup_script_logger("no_file_test", Path("/nonwritable/.logs/no_file_test.log"))
     assert len(logger.handlers) == 1
 
 
@@ -306,8 +306,8 @@ def test_job_main_returns_zero_when_already_locked(monkeypatch: pytest.MonkeyPat
         source_dir=source,
         dest_dir=dest,
         lock_file=tmp_path / "sync.lock",
-        log_dir=tmp_path / "logs",
-        state_file=tmp_path / "logs" / "state.json",
+        log_dir=tmp_path / ".logs",
+        state_file=tmp_path / ".logs" / "state.json",
         extensions=sync_cfg.extensions,
         ffmpeg_threads=1,
     )
@@ -320,7 +320,7 @@ def test_job_main_returns_zero_when_already_locked(monkeypatch: pytest.MonkeyPat
     org_cfg.temp_dir = tmp_path / "temp"
     org_cfg.temp_dir.mkdir()
     org_cfg.lock_file = tmp_path / "org.lock"
-    org_cfg.log_dir = tmp_path / "logs"
+    org_cfg.log_dir = tmp_path / ".logs"
     org_cfg.log_file = org_cfg.log_dir / "organize_temp_media.log"
     org_cfg.reorganize_existing = False
     org_cfg.file_extensions = ("jpg",)
@@ -346,7 +346,7 @@ def test_organize_files_returns_error_when_temp_dir_missing(tmp_path: Path) -> N
         script_name="organize_temp_media",
         temp_dir=tmp_path / "missing",
         lock_file=tmp_path / "lock",
-        log_dir=tmp_path / "logs",
+        log_dir=tmp_path / ".logs",
         reorganize_existing=False,
         file_extensions=("jpg",),
         raw_extensions=("arw",),
@@ -375,7 +375,7 @@ def test_organize_files_returns_error_if_destination_is_directory(tmp_path: Path
         script_name="organize_temp_media",
         temp_dir=temp_dir,
         lock_file=tmp_path / "lock",
-        log_dir=tmp_path / "logs",
+        log_dir=tmp_path / ".logs",
         reorganize_existing=False,
         file_extensions=("jpg",),
         raw_extensions=("arw",),
@@ -395,8 +395,8 @@ def test_sync_main_uses_run_job_when_source_missing(monkeypatch: pytest.MonkeyPa
         source_dir=tmp_path / "missing",
         dest_dir=tmp_path / "dest",
         lock_file=tmp_path / "sync.lock",
-        log_dir=tmp_path / "logs",
-        state_file=tmp_path / "logs" / "state.json",
+        log_dir=tmp_path / ".logs",
+        state_file=tmp_path / ".logs" / "state.json",
         extensions=cfg.extensions,
         ffmpeg_threads=1,
     )
@@ -417,8 +417,8 @@ def test_sync_keep_only_handles_probe_and_recheck_exceptions(
         source_dir=tmp_path / "source",
         dest_dir=tmp_path / "dest",
         lock_file=tmp_path / "sync.lock",
-        log_dir=tmp_path / "logs",
-        state_file=tmp_path / "logs" / "state.json",
+        log_dir=tmp_path / ".logs",
+        state_file=tmp_path / ".logs" / "state.json",
         extensions=("mkv",),
         ffmpeg_threads=1,
     )
@@ -471,8 +471,8 @@ def test_sync_keep_only_marks_clean_files_in_state(
         source_dir=tmp_path / "source",
         dest_dir=tmp_path / "dest",
         lock_file=tmp_path / "sync.lock",
-        log_dir=tmp_path / "logs",
-        state_file=tmp_path / "logs" / "state.json",
+        log_dir=tmp_path / ".logs",
+        state_file=tmp_path / ".logs" / "state.json",
         extensions=("mkv",),
         ffmpeg_threads=1,
     )

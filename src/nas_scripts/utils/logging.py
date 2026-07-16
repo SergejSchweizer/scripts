@@ -36,7 +36,7 @@ def setup_script_logger(script_name: str, log_file: Path) -> logging.Logger:
     logger.addHandler(stream_handler)
 
     # Fallback keeps observability even when the configured log path is not writable.
-    candidate_files = [log_file, Path.cwd() / "logs" / log_file.name]
+    candidate_files = [log_file, Path.cwd() / ".logs" / log_file.name]
     for candidate in candidate_files:
         try:
             candidate.parent.mkdir(parents=True, exist_ok=True)
