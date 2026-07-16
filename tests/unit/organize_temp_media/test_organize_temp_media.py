@@ -115,6 +115,7 @@ def test_load_organize_temp_downloads_config_uses_downloads_defaults(monkeypatch
     assert config.script_name == "organize_temp_downloads"
     assert config.temp_dir == Path("/volume1/Temp/Downloads")
     assert config.lock_file == Path("/tmp/organize_temp_downloads.lock")
+    assert config.file_extensions == ("*",)
     assert config.destination_layout == "month_only"
 
 
@@ -200,7 +201,7 @@ def test_organize_files_moves_downloads_into_month_folder_only(tmp_path: Path) -
         lock_file=config.lock_file,
         log_dir=config.log_dir,
         reorganize_existing=config.reorganize_existing,
-        file_extensions=config.file_extensions,
+        file_extensions=("*",),
         raw_extensions=config.raw_extensions,
         video_extensions=config.video_extensions,
         owner_user=config.owner_user,
@@ -211,20 +212,25 @@ def test_organize_files_moves_downloads_into_month_folder_only(tmp_path: Path) -
     config.temp_dir.mkdir(parents=True)
     photo = config.temp_dir / "photo.jpg"
     video = config.temp_dir / "clip.mp4"
+    document = config.temp_dir / "report.pdf"
     photo.write_text("jpg", encoding="utf-8")
     video.write_text("vid", encoding="utf-8")
+    document.write_text("pdf", encoding="utf-8")
     photo_month = month_folder_name(photo)
     video_month = month_folder_name(video)
+    document_month = month_folder_name(document)
     logger = setup_script_logger(f"organize_temp_downloads_test_{tmp_path.name}", config.log_file)
 
     assert organize_files(config, logger=logger) == 0
 
     assert (config.temp_dir / photo_month / "photo.jpg").exists()
     assert (config.temp_dir / video_month / "clip.mp4").exists()
+    assert (config.temp_dir / document_month / "report.pdf").exists()
     assert not (config.temp_dir / photo_month / "img" / "photo.jpg").exists()
     assert not (config.temp_dir / video_month / "vid" / "clip.mp4").exists()
     assert not photo.exists()
     assert not video.exists()
+    assert not document.exists()
 
 
 def test_organize_files_overwrites_existing_destination_file(tmp_path: Path) -> None:

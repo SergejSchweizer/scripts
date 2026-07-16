@@ -21,6 +21,7 @@ DEFAULT_LOG_DIR = Path("/volume1/Temp/.logs")
 DEFAULT_CONFLICT_POLICY = "overwrite"
 DEFAULT_DESTINATION_LAYOUT = "categorized"
 DEFAULT_DOWNLOADS_DESTINATION_LAYOUT = "month_only"
+DEFAULT_DOWNLOADS_FILE_EXTENSIONS = ("*",)
 DEFAULT_FILE_EXTENSIONS = (
     "arw",
     "mov",
@@ -85,6 +86,7 @@ def _load_organize_temp_config(
     script_name: str,
     default_temp_dir: Path,
     default_lock_file: Path,
+    default_file_extensions: tuple[str, ...],
     destination_layout: str,
 ) -> OrganizeTempMediaConfig:
     """Load shared organizer settings from environment variables."""
@@ -96,7 +98,7 @@ def _load_organize_temp_config(
         reorganize_existing=_parse_bool_env(os.environ.get("REORGANIZE_EXISTING")),
         file_extensions=_parse_csv_env(
             os.environ.get("FILE_EXTENSIONS"),
-            DEFAULT_FILE_EXTENSIONS,
+            default_file_extensions,
         ),
         raw_extensions=_parse_csv_env(
             os.environ.get("RAW_EXTENSIONS"),
@@ -119,6 +121,7 @@ def load_organize_temp_media_config() -> OrganizeTempMediaConfig:
         script_name="organize_temp_media",
         default_temp_dir=DEFAULT_TEMP_DIR,
         default_lock_file=DEFAULT_LOCK_FILE,
+        default_file_extensions=DEFAULT_FILE_EXTENSIONS,
         destination_layout=DEFAULT_DESTINATION_LAYOUT,
     )
 
@@ -129,5 +132,6 @@ def load_organize_temp_downloads_config() -> OrganizeTempMediaConfig:
         script_name="organize_temp_downloads",
         default_temp_dir=DEFAULT_DOWNLOADS_TEMP_DIR,
         default_lock_file=DEFAULT_DOWNLOADS_LOCK_FILE,
+        default_file_extensions=DEFAULT_DOWNLOADS_FILE_EXTENSIONS,
         destination_layout=DEFAULT_DOWNLOADS_DESTINATION_LAYOUT,
     )

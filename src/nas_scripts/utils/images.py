@@ -25,7 +25,8 @@ except ImportError:  # pragma: no cover - platform-specific
 
 def has_extension(path: Path, extensions: tuple[str, ...]) -> bool:
     """Decide whether a file should enter the organizer routing step."""
-    return path.suffix.lower().lstrip(".") in _normalized_extensions(extensions)
+    normalized_extensions = _normalized_extensions(extensions)
+    return "*" in normalized_extensions or path.suffix.lower().lstrip(".") in normalized_extensions
 
 
 @lru_cache(maxsize=32)
