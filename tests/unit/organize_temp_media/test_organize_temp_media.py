@@ -75,11 +75,8 @@ def test_collect_top_level_matching_files_ignores_nested_directories(tmp_path: P
 def test_job_module_stays_isolated_from_other_script_modules() -> None:
     source = JOB_MODULE.read_text(encoding="utf-8")
 
-    assert "nas_scripts.jobs.ingest_crypto_documents" not in source
     assert "nas_scripts.jobs.sync_media_library" not in source
-    assert "nas_scripts.config.ingest_crypto_documents" not in source
     assert "nas_scripts.config.sync_media_library" not in source
-    assert "nas_scripts.utils.flowrag" not in source
     assert "nas_scripts.utils.media" not in source
 
 

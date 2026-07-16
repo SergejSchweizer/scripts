@@ -12,7 +12,6 @@ This repository contains three NAS commands:
 
 - [Quick Start](#quick-start)
 - [Project Overview](#project-overview)
-- [Developer Guide](#developer-guide)
 - [Jobs](#jobs)
 - [Operational Behavior](#operational-behavior)
 - [Configuration](#configuration)
@@ -67,6 +66,7 @@ Architecture graph:
 | Jobs (workflow facade)    |
 | jobs/sync_media_library   |
 | jobs/organize_temp_media  |
+| jobs/organize_temp_downloads |
 +-------------+-------------+
               |
       +-------+--------+
@@ -87,12 +87,6 @@ Each job follows the same general lifecycle:
 4. Run the workflow.
 5. Persist state if needed.
 6. Release the lock.
-
-## Developer Guide
-
-For full developer-facing documentation of every module, script, and test suite, see:
-
-- [`docs/DEVELOPER_GUIDE.md`](/home/vcs/git/nas-scripts/docs/DEVELOPER_GUIDE.md)
 
 ## Jobs
 
@@ -366,6 +360,7 @@ Run only the unit suites:
 
 ```bash
 .venv/bin/pytest -q tests/unit
+```
 
 Generate an explicit coverage report:
 
@@ -386,7 +381,6 @@ Generate an HTML coverage report:
 ```
 
 Then open `htmlcov/index.html` in your browser.
-```
 
 The repository currently includes unit coverage for:
 
