@@ -7,6 +7,7 @@ the organizer's simple file-moving strategy.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import os
 from datetime import datetime
 from functools import lru_cache
@@ -22,6 +23,14 @@ try:
 except ImportError:  # pragma: no cover - platform-specific
     _grp = None
     _pwd = None
+
+
+@dataclass(frozen=True)
+class PathTimestamps:
+    """Portable timestamp snapshot that can be restored after a move."""
+
+    atime_ns: int
+    mtime_ns: int
 
 
 def has_extension(path: Path, extensions: tuple[str, ...]) -> bool:
@@ -99,8 +108,18 @@ def build_destination_dir(
 
 def set_path_timestamp_from_source(target: Path, source: Path) -> None:
     """Preserve source timestamps after the file has been moved."""
-    stat = source.stat()
-    os.utime(target, (stat.st_atime, stat.st_mtime))
+    apply_path_timestamps(target, capture_path_timestamps(source))
+
+
+def capture_path_timestamps(path: Path) -> PathTimestamps:
+    """Capture portable file timestamps before a move changes path metadata."""
+    stat = path.stat()
+    return PathTimestamps(atime_ns=stat.st_atime_ns, mtime_ns=stat.st_mtime_ns)
+
+
+def apply_path_timestamps(path: Path, timestamps: PathTimestamps) -> None:
+    """Restore access and modification timestamps on a moved path."""
+    os.utime(path, ns=(timestamps.atime_ns, timestamps.mtime_ns))
 
 
 def apply_ownership(path: Path, *, owner_user: str | None, owner_group: str | None) -> None:
