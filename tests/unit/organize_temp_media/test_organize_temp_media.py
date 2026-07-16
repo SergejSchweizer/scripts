@@ -13,6 +13,8 @@ from nas_scripts.utils.images import (
     build_destination_dir,
     collect_matching_files,
     collect_top_level_matching_files,
+    collect_top_level_matching_items,
+    is_month_folder_name,
     month_folder_name,
 )
 from nas_scripts.utils.logging import setup_script_logger
@@ -55,6 +57,20 @@ def test_collect_top_level_matching_files_ignores_nested_directories(tmp_path: P
     matches = collect_top_level_matching_files(root, ("jpg",))
 
     assert [path.name for path in matches] == ["photo.jpg"]
+
+
+def test_collect_top_level_matching_items_includes_unsorted_directories(tmp_path: Path) -> None:
+    root = tmp_path / "temp"
+    root.mkdir()
+    (root / "report.pdf").write_text("pdf", encoding="utf-8")
+    (root / "download_bundle").mkdir()
+    (root / "2026-07").mkdir()
+
+    matches = collect_top_level_matching_items(root, ("*",))
+
+    assert [path.name for path in matches] == ["download_bundle", "report.pdf"]
+    assert is_month_folder_name("2026-07")
+    assert not is_month_folder_name("download_bundle")
 
 
 def test_job_module_stays_isolated_from_other_script_modules() -> None:
@@ -213,12 +229,16 @@ def test_organize_files_moves_downloads_into_month_folder_only(tmp_path: Path) -
     photo = config.temp_dir / "photo.jpg"
     video = config.temp_dir / "clip.mp4"
     document = config.temp_dir / "report.pdf"
+    bundle = config.temp_dir / "download_bundle"
     photo.write_text("jpg", encoding="utf-8")
     video.write_text("vid", encoding="utf-8")
     document.write_text("pdf", encoding="utf-8")
+    bundle.mkdir()
+    (bundle / "nested.txt").write_text("nested", encoding="utf-8")
     photo_month = month_folder_name(photo)
     video_month = month_folder_name(video)
     document_month = month_folder_name(document)
+    bundle_month = month_folder_name(bundle)
     logger = setup_script_logger(f"organize_temp_downloads_test_{tmp_path.name}", config.log_file)
 
     assert organize_files(config, logger=logger) == 0
@@ -226,11 +246,13 @@ def test_organize_files_moves_downloads_into_month_folder_only(tmp_path: Path) -
     assert (config.temp_dir / photo_month / "photo.jpg").exists()
     assert (config.temp_dir / video_month / "clip.mp4").exists()
     assert (config.temp_dir / document_month / "report.pdf").exists()
+    assert (config.temp_dir / bundle_month / "download_bundle" / "nested.txt").exists()
     assert not (config.temp_dir / photo_month / "img" / "photo.jpg").exists()
     assert not (config.temp_dir / video_month / "vid" / "clip.mp4").exists()
     assert not photo.exists()
     assert not video.exists()
     assert not document.exists()
+    assert not bundle.exists()
 
 
 def test_organize_files_overwrites_existing_destination_file(tmp_path: Path) -> None:
@@ -300,8 +322,8 @@ def test_organize_files_logs_when_no_files_are_found(tmp_path: Path) -> None:
         handler.flush()
 
     log_content = config.log_file.read_text(encoding="utf-8")
-    assert "Found 0 matching file(s)" in log_content
-    assert "No matching files found. Nothing to move." in log_content
+    assert "Found 0 matching item(s)" in log_content
+    assert "No matching items found. Nothing to move." in log_content
     assert "Organization completed." in log_content
 
 
@@ -390,7 +412,7 @@ def test_organize_files_logs_progress(tmp_path: Path) -> None:
         handler.flush()
 
     log_content = config.log_file.read_text(encoding="utf-8")
-    assert "Found 1 matching file(s)" in log_content
+    assert "Found 1 matching item(s)" in log_content
     assert "Moved" in log_content
 
 

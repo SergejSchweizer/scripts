@@ -171,9 +171,9 @@ Behavior:
 
 | Item | Details |
 | --- | --- |
-| Input | Matching files in `TEMP_DIR` |
+| Input | Matching files in `TEMP_DIR`; `organize-temp-downloads` also moves top-level directories |
 | Output | `organize-temp-media`: `YYYY-MM/raw`, `YYYY-MM/img`, or `YYYY-MM/vid`; `organize-temp-downloads`: `YYYY-MM` only |
-| Default scan mode | Top-level files only |
+| Default scan mode | Top-level files only for media; top-level files and non-month directories for downloads |
 | Optional scan mode | `--reorganize-existing` scans nested legacy folders too |
 | Safety | Uses a lock file to prevent overlapping runs |
 
@@ -191,7 +191,7 @@ python scripts/organize_temp_downloads.py
 Flow graph:
 
 ```text
-TEMP_DIR --> collect matching files --> build destination bucket (YYYY-MM or YYYY-MM/raw|img|vid)
+TEMP_DIR --> collect matching items --> build destination bucket (YYYY-MM or YYYY-MM/raw|img|vid)
                                          |
                                          v
                             resolve conflicts (overwrite|skip|rename)

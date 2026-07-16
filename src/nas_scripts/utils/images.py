@@ -11,6 +11,7 @@ import os
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
+import re
 from typing import Any
 
 _grp: Any
@@ -51,6 +52,22 @@ def collect_top_level_matching_files(root: Path, extensions: tuple[str, ...]) ->
         if path.is_file() and has_extension(path, extensions):
             matches.append(path)
     return matches
+
+
+def collect_top_level_matching_items(root: Path, extensions: tuple[str, ...]) -> list[Path]:
+    """Collect top-level files and unsorted directories for month-only organization."""
+    matches: list[Path] = []
+    for path in sorted(root.iterdir()):
+        if path.is_file() and has_extension(path, extensions):
+            matches.append(path)
+        elif path.is_dir() and not is_month_folder_name(path.name):
+            matches.append(path)
+    return matches
+
+
+def is_month_folder_name(name: str) -> bool:
+    """Return whether a directory name is already a YYYY-MM month bucket."""
+    return re.fullmatch(r"\d{4}-\d{2}", name) is not None
 
 
 def timestamp_for_path(path: Path) -> datetime:

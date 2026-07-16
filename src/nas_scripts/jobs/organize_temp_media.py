@@ -22,6 +22,7 @@ from nas_scripts.utils.images import (
     build_destination_dir,
     collect_matching_files,
     collect_top_level_matching_files,
+    collect_top_level_matching_items,
     month_folder_name,
     set_path_timestamp_from_source,
 )
@@ -103,21 +104,21 @@ def organize_files(config: OrganizeTempMediaConfig, *, logger: logging.Logger) -
         logger.error(message)
         return 1
 
-    # Default mode only scans top-level files; optional mode reprocesses nested layout.
-    file_collector = (
-        collect_matching_files
-        if config.reorganize_existing
-        else collect_top_level_matching_files
-    )
-    files = file_collector(config.temp_dir, config.file_extensions)
+    # Default mode only scans top-level items; optional mode reprocesses nested files.
+    if config.reorganize_existing:
+        items = collect_matching_files(config.temp_dir, config.file_extensions)
+    elif config.destination_layout == "month_only":
+        items = collect_top_level_matching_items(config.temp_dir, config.file_extensions)
+    else:
+        items = collect_top_level_matching_files(config.temp_dir, config.file_extensions)
     conflict_resolver = _build_conflict_resolver(config.conflict_policy)
-    logger.info("Found %s matching file(s) in %s", len(files), config.temp_dir)
-    if not files:
-        logger.info("No matching files found. Nothing to move.")
+    logger.info("Found %s matching item(s) in %s", len(items), config.temp_dir)
+    if not items:
+        logger.info("No matching items found. Nothing to move.")
         logger.info("Organization completed.")
         return 0
 
-    for source_path in files:
+    for source_path in items:
         destination_dir = _build_destination_dir(source_path, config)
         destination_path = destination_dir / source_path.name
 
@@ -128,15 +129,28 @@ def organize_files(config: OrganizeTempMediaConfig, *, logger: logging.Logger) -
         destination_dir.mkdir(parents=True, exist_ok=True)
         if destination_path.exists():
             if destination_path.is_dir():
-                message = f"Cannot overwrite directory with file: {destination_path}"
-                logger.error(message)
-                return 1
-            # Conflict policy is centralized behind a strategy to keep workflow linear.
-            resolved_destination = conflict_resolver.resolve(destination_path, logger=logger)
-            if resolved_destination is None:
-                # Skip policy returns None to signal a deliberate no-op.
-                continue
-            destination_path = resolved_destination
+                if source_path.is_file():
+                    message = f"Cannot overwrite directory with file: {destination_path}"
+                    logger.error(message)
+                    return 1
+                if config.conflict_policy == "overwrite":
+                    shutil.rmtree(destination_path)
+                    logger.info("Overwriting existing directory: %s", destination_path)
+                else:
+                    resolved_destination = conflict_resolver.resolve(destination_path, logger=logger)
+                    if resolved_destination is None:
+                        continue
+                    destination_path = resolved_destination
+            elif source_path.is_dir() and config.conflict_policy == "overwrite":
+                destination_path.unlink()
+                logger.info("Overwriting existing file: %s", destination_path)
+            else:
+                # Conflict policy is centralized behind a strategy to keep workflow linear.
+                resolved_destination = conflict_resolver.resolve(destination_path, logger=logger)
+                if resolved_destination is None:
+                    # Skip policy returns None to signal a deliberate no-op.
+                    continue
+                destination_path = resolved_destination
 
         # shutil.move handles cross-device moves by falling back to copy+unlink.
         shutil.move(str(source_path), str(destination_path))
