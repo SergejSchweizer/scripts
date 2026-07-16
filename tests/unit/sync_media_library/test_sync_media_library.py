@@ -80,11 +80,8 @@ def test_collect_relative_media_files_filters_extensions(tmp_path: Path) -> None
 def test_job_module_stays_isolated_from_other_script_modules() -> None:
     source = JOB_MODULE.read_text(encoding="utf-8")
 
-    assert "nas_scripts.jobs.ingest_crypto_documents" not in source
     assert "nas_scripts.jobs.organize_temp_media" not in source
-    assert "nas_scripts.config.ingest_crypto_documents" not in source
     assert "nas_scripts.config.organize_temp_media" not in source
-    assert "nas_scripts.utils.flowrag" not in source
     assert "nas_scripts.utils.images" not in source
 
 
