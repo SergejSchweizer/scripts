@@ -9,9 +9,6 @@ import pytest
 from nas_scripts.cli import main as cli_main
 from nas_scripts.config.sync_media_library import SyncMediaLibraryConfig
 from nas_scripts.jobs.sync_media_library import (
-    FILTER_POLICY_VERSION,
-    _build_cache_validation_strategies,
-    _files_are_definitely_equal_by_stat,
     keep_only_english_audio_and_subtitles,
     run_job,
     sync_media_files,
@@ -27,36 +24,16 @@ from nas_scripts.utils.media import (
     filter_to_english_audio_and_subtitles,
     format_audio_streams,
 )
+from nas_scripts.utils.verification_cache import (
+    FILTER_POLICY_VERSION,
+    build_cache_validation_strategies,
+    files_are_definitely_equal_by_stat,
+)
+from ..factories import make_sync_config as make_config
+from ..fakes import DummyLogger
 
 MEDIA_FIXTURE_ROOT = Path("tests/data/sync_media_library")
 JOB_MODULE = Path("src/nas_scripts/jobs/sync_media_library.py")
-
-
-def make_config(tmp_path: Path) -> SyncMediaLibraryConfig:
-    return SyncMediaLibraryConfig(
-        script_name="sync_media_library",
-        source_dir=tmp_path / "source",
-        dest_dir=tmp_path / "dest",
-        lock_file=tmp_path / "media.lock",
-        log_dir=tmp_path / ".logs",
-        state_file=tmp_path / ".logs" / "sync_media_library.state.json",
-        extensions=("mpg", "avi", "mp4", "mkv"),
-        ffmpeg_threads=1,
-    )
-
-
-class DummyLogger:
-    def info(self, *args, **_kwargs):
-        return None
-
-    def warning(self, *args, **_kwargs):
-        return None
-
-    def error(self, *args, **_kwargs):
-        return None
-
-    def exception(self, *args, **_kwargs):
-        return None
 
 
 def _require_media_fixtures() -> Path:
@@ -170,7 +147,7 @@ def test_sync_preserves_verified_filtered_destination_when_source_not_newer(
         },
     )
     monkeypatch.setattr(
-        "nas_scripts.jobs.sync_media_library._files_are_definitely_equal_by_stat",
+        "nas_scripts.utils.verification_cache.files_are_definitely_equal_by_stat",
         lambda _source_path, _dest_path: False,
     )
     monkeypatch.setattr(
@@ -217,7 +194,7 @@ def test_sync_preserves_verified_filtered_destination_for_legacy_policy_when_sou
         },
     )
     monkeypatch.setattr(
-        "nas_scripts.jobs.sync_media_library._files_are_definitely_equal_by_stat",
+        "nas_scripts.utils.verification_cache.files_are_definitely_equal_by_stat",
         lambda _source_path, _dest_path: False,
     )
     monkeypatch.setattr(
@@ -242,7 +219,7 @@ def test_files_are_definitely_equal_by_stat_detects_difference(tmp_path: Path) -
     dest = tmp_path / "b.mkv"
     source.write_text("aaaa", encoding="utf-8")
     dest.write_text("bbbbbbb", encoding="utf-8")
-    assert not _files_are_definitely_equal_by_stat(source, dest)
+    assert not files_are_definitely_equal_by_stat(source, dest)
 
 
 def test_files_are_definitely_equal_by_stat_accepts_small_mtime_drift(tmp_path: Path) -> None:
@@ -255,12 +232,12 @@ def test_files_are_definitely_equal_by_stat_accepts_small_mtime_drift(tmp_path: 
     drift_seconds = source_stat.st_mtime + 0.5
     os.utime(dest, (drift_seconds, drift_seconds))
 
-    assert _files_are_definitely_equal_by_stat(source, dest)
+    assert files_are_definitely_equal_by_stat(source, dest)
 
 
 def test_cache_validation_strategy_factory_supports_known_modes() -> None:
-    assert len(_build_cache_validation_strategies("stat_only")) == 1
-    assert len(_build_cache_validation_strategies("stat_then_checksum")) == 2
+    assert len(build_cache_validation_strategies("stat_only")) == 1
+    assert len(build_cache_validation_strategies("stat_then_checksum")) == 2
 
 
 def test_find_non_english_audio_subtitle_streams_returns_matching_indexes() -> None:

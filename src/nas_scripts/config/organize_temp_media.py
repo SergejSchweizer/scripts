@@ -10,6 +10,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from nas_scripts.config.env import env_bool, env_choice, env_csv, env_path
+
 
 DEFAULT_TEMP_DIR = Path("/volume1/Temp/Fotos")
 DEFAULT_DOWNLOADS_TEMP_DIR = Path("/volume1/Temp/Downloads")
@@ -61,34 +63,21 @@ class OrganizeTempMediaConfig:
 
 def _parse_csv_env(value: str | None, default: tuple[str, ...]) -> tuple[str, ...]:
     """Parse a comma-separated environment variable into a tuple."""
-    if not value:
-        return default
-    parts = [part.strip().lower() for part in value.split(",") if part.strip()]
-    return tuple(parts) if parts else default
+    return env_csv(value, default)
 
 
 def _parse_conflict_policy(value: str | None) -> str:
     """Parse and validate conflict handling policy."""
-    if value is None:
-        return DEFAULT_CONFLICT_POLICY
-    normalized = value.strip().lower()
-    if normalized in {"overwrite", "skip", "rename"}:
-        return normalized
-    # Fall back to the default policy rather than failing startup for a bad env var.
-    return DEFAULT_CONFLICT_POLICY
+    return env_choice(
+        value,
+        choices={"overwrite", "skip", "rename"},
+        default=DEFAULT_CONFLICT_POLICY,
+    )
 
 
 def _parse_bool_env(value: str | None, default: bool = False) -> bool:
     """Parse a permissive boolean environment variable."""
-    if value is None:
-        return default
-    normalized = value.strip().lower()
-    if normalized in {"1", "true", "yes", "on"}:
-        return True
-    if normalized in {"0", "false", "no", "off"}:
-        return False
-    # Unknown tokens keep the caller-provided default for stable behavior.
-    return default
+    return env_bool(value, default=default)
 
 
 def _load_organize_temp_config(
@@ -101,9 +90,9 @@ def _load_organize_temp_config(
     """Load shared organizer settings from environment variables."""
     return OrganizeTempMediaConfig(
         script_name=script_name,
-        temp_dir=Path(os.environ.get("TEMP_DIR", str(default_temp_dir))),
-        lock_file=Path(os.environ.get("LOCK_FILE", str(default_lock_file))),
-        log_dir=Path(os.environ.get("LOG_DIR", str(DEFAULT_LOG_DIR))),
+        temp_dir=env_path(os.environ.get("TEMP_DIR"), default_temp_dir),
+        lock_file=env_path(os.environ.get("LOCK_FILE"), default_lock_file),
+        log_dir=env_path(os.environ.get("LOG_DIR"), DEFAULT_LOG_DIR),
         reorganize_existing=_parse_bool_env(os.environ.get("REORGANIZE_EXISTING")),
         file_extensions=_parse_csv_env(
             os.environ.get("FILE_EXTENSIONS"),

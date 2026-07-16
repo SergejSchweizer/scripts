@@ -27,12 +27,7 @@ from nas_scripts.utils.media import (
     probe_streams,
 )
 from nas_scripts.utils.state import load_state
-
-
-class DummyResult:
-    def __init__(self, returncode: int = 0, stdout: str = "") -> None:
-        self.returncode = returncode
-        self.stdout = stdout
+from .fakes import DummyResult
 
 
 def test_main_module_exits_with_cli_status(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -68,7 +63,7 @@ def test_load_state_returns_empty_for_invalid_json(tmp_path: Path) -> None:
     assert load_state(state_file) == {}
 
 
-def test_probe_streams_parses_ffprobe_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_probe_streams_parses_ffprobe_output(tmp_path: Path) -> None:
     file_path = tmp_path / "movie.mkv"
     file_path.write_text("x", encoding="utf-8")
 
@@ -87,8 +82,7 @@ def test_probe_streams_parses_ffprobe_output(monkeypatch: pytest.MonkeyPatch, tm
             del source_path, map_args, target_path, ffmpeg_threads
             return DummyResult(returncode=0)
 
-    monkeypatch.setattr("nas_scripts.utils.media._build_media_command_adapter", lambda: FakeAdapter())
-    streams = probe_streams(file_path)
+    streams = probe_streams(file_path, adapter=FakeAdapter())
     assert streams == [
         MediaStream(index=0, codec_type="video", language=None),
         MediaStream(index=1, codec_type="audio", language="eng"),
@@ -140,20 +134,13 @@ def test_filter_to_english_returns_true_when_already_clean(
 
 
 def test_filter_to_english_returns_false_when_ffmpeg_fails(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    tmp_path: Path,
 ) -> None:
     file_path = tmp_path / "movie.mkv"
     file_path.write_text("x", encoding="utf-8")
-    monkeypatch.setattr(
-        "nas_scripts.utils.media.probe_streams",
-        lambda _path: [
-            MediaStream(index=0, codec_type="video", language=None),
-            MediaStream(index=1, codec_type="audio", language="rus"),
-        ],
-    )
     class FakeAdapter(MediaCommandAdapter):
         def run_ffprobe(self, _file_path: Path):
-            raise AssertionError("unused in this test")
+            return DummyResult(stdout="0,video\n1,audio,rus\n")
 
         def run_ffmpeg_copy(
             self,
@@ -166,8 +153,11 @@ def test_filter_to_english_returns_false_when_ffmpeg_fails(
             del source_path, map_args, target_path, ffmpeg_threads
             return DummyResult(returncode=1)
 
-    monkeypatch.setattr("nas_scripts.utils.media._build_media_command_adapter", lambda: FakeAdapter())
-    assert not filter_to_english_audio_and_subtitles(file_path, ffmpeg_threads=1)
+    assert not filter_to_english_audio_and_subtitles(
+        file_path,
+        ffmpeg_threads=1,
+        adapter=FakeAdapter(),
+    )
 
 
 def test_filter_to_english_returns_false_when_map_args_empty(
@@ -344,7 +334,7 @@ def test_job_main_returns_zero_when_already_locked(monkeypatch: pytest.MonkeyPat
         ffmpeg_threads=1,
     )
     monkeypatch.setattr("nas_scripts.jobs.sync_media_library.load_sync_media_library_config", lambda: sync_cfg)
-    monkeypatch.setattr("nas_scripts.jobs.sync_media_library.FileLock", lambda _path: (_ for _ in ()).throw(AlreadyLockedError("x")))
+    monkeypatch.setattr("nas_scripts.utils.job.FileLock", lambda _path: (_ for _ in ()).throw(AlreadyLockedError("x")))
     assert sync_main() == 0
 
     org_cfg = type("Cfg", (), {})()
@@ -366,7 +356,7 @@ def test_job_main_returns_zero_when_already_locked(monkeypatch: pytest.MonkeyPat
         "nas_scripts.jobs.organize_temp_media.load_organize_temp_media_config",
         lambda: org_cfg,
     )
-    monkeypatch.setattr("nas_scripts.jobs.organize_temp_media.FileLock", lambda _path: (_ for _ in ()).throw(AlreadyLockedError("x")))
+    monkeypatch.setattr("nas_scripts.utils.job.FileLock", lambda _path: (_ for _ in ()).throw(AlreadyLockedError("x")))
     assert organize_main() == 0
 
 

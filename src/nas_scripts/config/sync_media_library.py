@@ -11,6 +11,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from nas_scripts.config.env import env_choice, env_csv, env_int, env_path
+
 
 DEFAULT_SOURCE_DIR = Path("/volume1/Torrents")
 DEFAULT_DEST_DIR = Path("/volume1/Media")
@@ -43,32 +45,18 @@ class SyncMediaLibraryConfig:
 
 def load_sync_media_library_config() -> SyncMediaLibraryConfig:
     """Factory function that builds the media sync runtime configuration."""
-    extensions_raw = os.environ.get("MEDIA_EXTENSIONS")
-    # Normalize once at the config boundary so downstream modules can assume
-    # lower-cased extension tokens.
-    extensions = (
-        tuple(part.strip().lower() for part in extensions_raw.split(",") if part.strip())
-        if extensions_raw
-        else DEFAULT_EXTENSIONS
-    )
-    cache_validation_mode_raw = os.environ.get(
-        "CACHE_VALIDATION_MODE",
-        DEFAULT_CACHE_VALIDATION_MODE,
-    ).strip().lower()
-    cache_validation_mode = (
-        cache_validation_mode_raw
-        if cache_validation_mode_raw in {"stat_only", "stat_then_checksum"}
-        else DEFAULT_CACHE_VALIDATION_MODE
-    )
-
     return SyncMediaLibraryConfig(
         script_name="sync_media_library",
-        source_dir=Path(os.environ.get("SOURCE_DIR", str(DEFAULT_SOURCE_DIR))),
-        dest_dir=Path(os.environ.get("DEST_DIR", str(DEFAULT_DEST_DIR))),
-        lock_file=Path(os.environ.get("LOCK_FILE", str(DEFAULT_LOCK_FILE))),
-        log_dir=Path(os.environ.get("LOG_DIR", str(DEFAULT_LOG_DIR))),
-        state_file=Path(os.environ.get("STATE_FILE", str(DEFAULT_STATE_FILE))),
-        extensions=extensions,
-        ffmpeg_threads=int(os.environ.get("FFMPEG_THREADS", "1")),
-        cache_validation_mode=cache_validation_mode,
+        source_dir=env_path(os.environ.get("SOURCE_DIR"), DEFAULT_SOURCE_DIR),
+        dest_dir=env_path(os.environ.get("DEST_DIR"), DEFAULT_DEST_DIR),
+        lock_file=env_path(os.environ.get("LOCK_FILE"), DEFAULT_LOCK_FILE),
+        log_dir=env_path(os.environ.get("LOG_DIR"), DEFAULT_LOG_DIR),
+        state_file=env_path(os.environ.get("STATE_FILE"), DEFAULT_STATE_FILE),
+        extensions=env_csv(os.environ.get("MEDIA_EXTENSIONS"), DEFAULT_EXTENSIONS),
+        ffmpeg_threads=env_int(os.environ.get("FFMPEG_THREADS"), default=1),
+        cache_validation_mode=env_choice(
+            os.environ.get("CACHE_VALIDATION_MODE"),
+            choices={"stat_only", "stat_then_checksum"},
+            default=DEFAULT_CACHE_VALIDATION_MODE,
+        ),
     )
