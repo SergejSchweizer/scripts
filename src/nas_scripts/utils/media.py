@@ -147,10 +147,14 @@ def remove_empty_directories(root: Path) -> list[Path]:
     return removed
 
 
-def probe_streams(file_path: Path) -> list[MediaStream]:
+def probe_streams(
+    file_path: Path,
+    *,
+    adapter: MediaCommandAdapter | None = None,
+) -> list[MediaStream]:
     """Inspect a media file so the filtering strategy can choose kept streams."""
-    adapter = _build_media_command_adapter()
-    result = adapter.run_ffprobe(file_path)
+    command_adapter = adapter or _build_media_command_adapter()
+    result = command_adapter.run_ffprobe(file_path)
     streams: list[MediaStream] = []
     # ffprobe csv rows are `index,codec_type,language` (language may be missing).
     for line in result.stdout.splitlines():
@@ -226,6 +230,7 @@ def filter_to_english_audio_and_subtitles(
     *,
     ffmpeg_threads: int,
     logger: logging.Logger | None = None,
+    adapter: MediaCommandAdapter | None = None,
 ) -> bool:
     """Remove non-English audio/subtitle streams and verify each pass.
 
@@ -236,10 +241,15 @@ def filter_to_english_audio_and_subtitles(
     """
     max_passes = 20
     temp_file = file_path.with_name(f".nas_scripts_tmp.{file_path.suffix.lstrip('.')}")
-    adapter = _build_media_command_adapter()
+    command_adapter = adapter or _build_media_command_adapter()
+
+    def probe(path: Path) -> list[MediaStream]:
+        if adapter is None:
+            return probe_streams(path)
+        return probe_streams(path, adapter=command_adapter)
 
     for _ in range(max_passes):
-        streams = probe_streams(file_path)
+        streams = probe(file_path)
         non_english_indexes = find_non_english_audio_subtitle_streams(streams)
         if not non_english_indexes:
             if logger is not None:
@@ -261,7 +271,7 @@ def filter_to_english_audio_and_subtitles(
             return False
 
         # Remux into a temp file first; original file is replaced only after probe verification.
-        result = adapter.run_ffmpeg_copy(
+        result = command_adapter.run_ffmpeg_copy(
             source_path=file_path,
             map_args=map_args,
             target_path=temp_file,
@@ -274,7 +284,7 @@ def filter_to_english_audio_and_subtitles(
             return False
 
         try:
-            verified_streams = probe_streams(temp_file)
+            verified_streams = probe(temp_file)
         except Exception as exc:  # noqa: BLE001
             temp_file.unlink(missing_ok=True)
             if logger is not None:

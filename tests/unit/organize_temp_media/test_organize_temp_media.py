@@ -16,6 +16,7 @@ from nas_scripts.utils.images import (
     month_folder_name,
 )
 from nas_scripts.utils.logging import setup_script_logger
+from ..factories import make_organize_config as make_config
 
 
 JOB_MODULE = Path("src/nas_scripts/jobs/organize_temp_media.py")
@@ -29,22 +30,6 @@ def _record_cli_call(called: dict[str, bool | None], reorganize_existing: bool |
 def _record_reorganize_flag(seen: dict[str, bool], reorganize_existing: bool) -> int:
     seen["reorganize_existing"] = reorganize_existing
     return 0
-
-
-def make_config(tmp_path: Path) -> OrganizeTempMediaConfig:
-    return OrganizeTempMediaConfig(
-        script_name="organize_temp_media",
-        temp_dir=tmp_path / "temp",
-        lock_file=tmp_path / "organize_temp_media.lock",
-        log_dir=tmp_path / ".logs",
-        reorganize_existing=False,
-        file_extensions=("jpg", "JPG", "arw", "ARW", "mp4", "MP4"),
-        raw_extensions=("arw", "ARW"),
-        video_extensions=("mp4", "MP4"),
-        owner_user=None,
-        owner_group=None,
-        conflict_policy="overwrite",
-    )
 
 
 def test_collect_matching_files_filters_extensions(tmp_path: Path) -> None:

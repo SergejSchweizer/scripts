@@ -25,8 +25,7 @@ from nas_scripts.utils.images import (
     month_folder_name,
     set_path_timestamp_from_source,
 )
-from nas_scripts.utils.locking import AlreadyLockedError, FileLock
-from nas_scripts.utils.logging import setup_script_logger
+from nas_scripts.utils.job import run_locked_job
 
 
 ConfigLoader = Callable[[], OrganizeTempMediaConfig]
@@ -176,14 +175,7 @@ def run_organizer(
     config = config_loader()
     if reorganize_existing is not None:
         config = replace(config, reorganize_existing=reorganize_existing)
-    logger = setup_script_logger(config.script_name, config.log_file)
-    logger.info("Starting %s", config.script_name)
-    try:
-        with FileLock(config.lock_file):
-            return organize_files(config, logger=logger)
-    except AlreadyLockedError:
-        logger.warning("Another instance is already running. Exiting.")
-        return 0
+    return run_locked_job(config, lambda logger: organize_files(config, logger=logger))
 
 
 def main(*, reorganize_existing: bool | None = None) -> int:

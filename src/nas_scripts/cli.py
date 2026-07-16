@@ -51,7 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
     downloads_parser.add_argument(
         "--reorganize-existing",
         action="store_true",
-        help="Also scan existing subdirectories and reorganize older folder layouts into raw/img/vid.",
+        help="Also scan existing subdirectories and reorganize files into month folders.",
     )
     downloads_parser.set_defaults(
         handler=lambda args: organize_temp_downloads_main(
