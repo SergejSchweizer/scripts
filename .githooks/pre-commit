@@ -4,29 +4,19 @@ set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
-if [[ -x "$REPO_ROOT/.venv/bin/ruff" ]]; then
-  RUFF="$REPO_ROOT/.venv/bin/ruff"
-else
-  RUFF="ruff"
-fi
+PYTHON="$REPO_ROOT/.venv/bin/python"
 
-if [[ -x "$REPO_ROOT/.venv/bin/mypy" ]]; then
-  MYPY="$REPO_ROOT/.venv/bin/mypy"
-else
-  MYPY="mypy"
-fi
-
-if [[ -x "$REPO_ROOT/.venv/bin/pytest" ]]; then
-  PYTEST="$REPO_ROOT/.venv/bin/pytest"
-else
-  PYTEST="pytest"
+if [[ ! -x "$PYTHON" ]]; then
+  echo "Missing local Python environment: $PYTHON" >&2
+  echo "Run: /home/dev_scripts/.local/bin/uv venv --python 3.14.5 .venv && /home/dev_scripts/.local/bin/uv pip install --python .venv/bin/python -e '.[dev]' pip" >&2
+  exit 1
 fi
 
 echo "Running Ruff..."
-"$RUFF" check --fix .
+"$PYTHON" -m ruff check src scripts tests
 
 echo "Running MyPy..."
-"$MYPY"
+"$PYTHON" -m mypy src scripts
 
 echo "Running tests..."
-"$PYTEST" -q
+"$PYTHON" -m pytest -q
