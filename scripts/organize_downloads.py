@@ -1,6 +1,6 @@
-"""Thin script wrapper for the organize_temp_media job."""
+"""Thin script wrapper for the organize_downloads job."""
 
-from nas_scripts.jobs.organize_temp_media import main
+from nas_scripts.jobs.organize_temp_downloads import main
 
 
 if __name__ == "__main__":

@@ -37,3 +37,14 @@ def test_runtime_configs_ignore_external_log_dir(monkeypatch: pytest.MonkeyPatch
     assert load_sync_media_library_config().log_dir.as_posix() == ".logs"
     assert load_organize_temp_media_config().log_dir.as_posix() == ".logs"
     assert load_organize_temp_downloads_config().log_dir.as_posix() == ".logs"
+
+
+def test_photo_config_uses_renamed_script_and_dng_extension(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("FILE_EXTENSIONS", raising=False)
+    cfg = load_organize_temp_media_config()
+    assert cfg.script_name == "organize_temp_photos"
+    assert cfg.lock_file.as_posix() == "/tmp/organize_temp_photos.lock"
+    assert cfg.log_file.as_posix() == ".logs/organize_temp_photos.log"
+    assert "dng" in cfg.file_extensions

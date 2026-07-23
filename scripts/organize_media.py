@@ -1,4 +1,4 @@
-"""Thin script wrapper for the sync_media_library job."""
+"""Thin script wrapper for the organize_media job."""
 
 from nas_scripts.jobs.sync_media_library import main
 
