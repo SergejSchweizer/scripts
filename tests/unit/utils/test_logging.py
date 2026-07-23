@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from nas_scripts.utils.logging import setup_script_logger
+from nas_scripts.utils.logging import LOG_DATE_FORMAT, LOG_FORMAT, setup_script_logger
 
 
 def test_setup_logger_uses_only_requested_local_log_file(
@@ -28,6 +28,17 @@ def test_setup_logger_uses_only_requested_local_log_file(
     logger = setup_script_logger("local_test", local_log)
     assert len(logger.handlers) >= 2
     assert calls == [local_log]
+
+
+def test_setup_logger_uses_one_format_for_all_handlers(tmp_path: Path) -> None:
+    log_file = tmp_path / ".logs" / "format_test.log"
+    logger = setup_script_logger("format_test", log_file)
+
+    assert len(logger.handlers) == 2
+    for handler in logger.handlers:
+        assert handler.formatter is not None
+        assert handler.formatter._fmt == LOG_FORMAT
+        assert handler.formatter.datefmt == LOG_DATE_FORMAT
 
 
 def test_setup_logger_handles_local_log_path_failing(
