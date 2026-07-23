@@ -15,7 +15,7 @@ from nas_scripts.config.env import env_bool, env_choice, env_csv, env_path
 
 DEFAULT_TEMP_DIR = Path("/volume1/Temp/Fotos")
 DEFAULT_DOWNLOADS_TEMP_DIR = Path("/volume1/Temp/Downloads")
-DEFAULT_LOCK_FILE = Path("/tmp/organize_temp_media.lock")
+DEFAULT_LOCK_FILE = Path("/tmp/organize_temp_photos.lock")
 DEFAULT_DOWNLOADS_LOCK_FILE = Path("/tmp/organize_temp_downloads.lock")
 DEFAULT_LOG_DIR = Path(".logs")
 DEFAULT_CONFLICT_POLICY = "overwrite"
@@ -24,6 +24,7 @@ DEFAULT_DOWNLOADS_DESTINATION_LAYOUT = "month_only"
 DEFAULT_DOWNLOADS_FILE_EXTENSIONS = ("*",)
 DEFAULT_FILE_EXTENSIONS = (
     "arw",
+    "dng",
     "mov",
     "mp4",
     "jpg",
@@ -118,7 +119,7 @@ def _load_organize_temp_config(
 def load_organize_temp_media_config() -> OrganizeTempMediaConfig:
     """Load photo organizer settings from environment variables."""
     return _load_organize_temp_config(
-        script_name="organize_temp_media",
+        script_name="organize_temp_photos",
         default_temp_dir=DEFAULT_TEMP_DIR,
         default_lock_file=DEFAULT_LOCK_FILE,
         default_file_extensions=DEFAULT_FILE_EXTENSIONS,
