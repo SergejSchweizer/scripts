@@ -8,15 +8,15 @@ from __future__ import annotations
 
 import argparse
 
-from nas_scripts.jobs.organize_temp_downloads import main as organize_temp_downloads_main
-from nas_scripts.jobs.organize_temp_media import main as organize_temp_media_main
-from nas_scripts.jobs.sync_media_library import main as sync_media_library_main
+from scripts.jobs.organize_temp_downloads import main as organize_temp_downloads_main
+from scripts.jobs.organize_temp_media import main as organize_temp_photos_main
+from scripts.jobs.sync_media_library import main as sync_media_library_main
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the top-level argument parser for all NAS jobs."""
     parser = argparse.ArgumentParser(
-        prog="nas-scripts",
+        prog="scripts",
         description="Python automation scripts for NAS workflows.",
     )
     # We intentionally keep dispatch data-driven via subparser defaults so the
@@ -30,8 +30,8 @@ def build_parser() -> argparse.ArgumentParser:
     sync_parser.set_defaults(handler=lambda args: sync_media_library_main())
 
     organize_parser = subparsers.add_parser(
-        "organize-temp-media",
-        help="Sort temporary image and media files into dated folders.",
+        "organize-temp-photos",
+        help="Sort temporary photo and video files into dated folders.",
     )
     organize_parser.add_argument(
         "--reorganize-existing",
@@ -39,7 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Also scan existing subdirectories and reorganize older folder layouts into raw/img/vid.",
     )
     organize_parser.set_defaults(
-        handler=lambda args: organize_temp_media_main(
+        handler=lambda args: organize_temp_photos_main(
             reorganize_existing=args.reorganize_existing,
         )
     )

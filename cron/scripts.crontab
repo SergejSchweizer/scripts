@@ -1,0 +1,16 @@
+# Install with: crontab cron/scripts.crontab
+SHELL=/bin/bash
+SCRIPTS_PROJECT=/home/dev_scripts/scripts
+SCRIPTS_PYTHON=/home/dev_scripts/scripts/.venv/bin/python
+ORGANIZE_PHOTOS_LOCK=/home/dev_scripts/scripts/.locks/organize-temp-photos.lock
+ORGANIZE_DOWNLOADS_LOCK=/home/dev_scripts/scripts/.locks/organize-temp-downloads.lock
+MEDIA_SYNC_LOCK=/home/dev_scripts/scripts/.locks/sync-media-library.lock
+
+# Organize temporary photos every day at 23:55.
+55 23 * * * cd "$SCRIPTS_PROJECT" && LOCK_FILE="$ORGANIZE_PHOTOS_LOCK" "$SCRIPTS_PYTHON" -m scripts organize-temp-photos
+
+# Organize temporary downloads every day at 21:15.
+15 21 * * * cd "$SCRIPTS_PROJECT" && LOCK_FILE="$ORGANIZE_DOWNLOADS_LOCK" "$SCRIPTS_PYTHON" -m scripts organize-temp-downloads
+
+# Sync the media library every three hours.
+0 */3 * * * cd "$SCRIPTS_PROJECT" && LOCK_FILE="$MEDIA_SYNC_LOCK" "$SCRIPTS_PYTHON" -m scripts sync-media-library

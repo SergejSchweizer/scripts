@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from nas_scripts.utils.locking import AlreadyLockedError, FileLock
+from scripts.utils.locking import AlreadyLockedError, FileLock
 
 
 def test_file_lock_raises_when_underlying_lock_fails(
@@ -15,7 +15,7 @@ def test_file_lock_raises_when_underlying_lock_fails(
     def raise_oserror(*args, **_kwargs):  # type: ignore[no-untyped-def]
         raise OSError("busy")
 
-    monkeypatch.setattr("nas_scripts.utils.locking.fcntl.flock", raise_oserror)
+    monkeypatch.setattr("scripts.utils.locking.fcntl.flock", raise_oserror)
     with pytest.raises(AlreadyLockedError):
         lock.acquire()
 

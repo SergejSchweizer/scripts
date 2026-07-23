@@ -15,9 +15,7 @@ import shutil
 import time
 
 
-LOG_FORMAT = (
-    "%(asctime)s | %(levelname)-8s | script=%(name)s | pid=%(process)d | %(message)s"
-)
+LOG_FORMAT = "%(asctime)s | %(levelname)-8s | script=%(name)s | pid=%(process)d | %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 SECONDS_PER_DAY = 24 * 60 * 60
 COMPRESS_AFTER_SECONDS = 21 * SECONDS_PER_DAY
@@ -60,7 +58,7 @@ def _maintain_log_archives(log_file: Path, *, now: float | None = None) -> None:
 
 def setup_script_logger(script_name: str, log_file: Path) -> logging.Logger:
     """Create the shared logger used by each job facade."""
-    logger = logging.getLogger(f"nas_scripts.{script_name}")
+    logger = logging.getLogger(f"scripts.{script_name}")
     logger.setLevel(logging.INFO)
     logger.propagate = False
 

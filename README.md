@@ -1,11 +1,11 @@
-# NAS Scripts
+# Scripts
 
 Python automation for NAS workflows.
 
 This repository contains three NAS commands:
 
 - `sync-media-library`: mirror media into a library and filter non-English streams
-- `organize-temp-media`: sort temporary photos and videos into dated folders
+- `organize-temp-photos`: sort temporary photos and videos into dated folders
 - `organize-temp-downloads`: sort temporary downloads into dated folders
 
 ## Table Of Contents
@@ -36,7 +36,7 @@ python -m pip install -e .[dev]
 Run the CLI:
 
 ```bash
-python -m nas_scripts
+python -m scripts
 ```
 
 ## Project Overview
@@ -45,20 +45,19 @@ The codebase is organized by responsibility:
 
 | Path | Responsibility |
 | --- | --- |
-| `src/nas_scripts/cli.py` | Top-level command parsing and dispatch |
-| `src/nas_scripts/__main__.py` | `python -m nas_scripts` entrypoint |
-| `src/nas_scripts/config/` | Environment-driven runtime config |
-| `src/nas_scripts/jobs/` | Job orchestration and workflow logic |
-| `src/nas_scripts/utils/` | Shared helpers for extensions, file metadata, organizer paths, logging, locking, media commands, and state |
-| `scripts/` | Thin direct-execution wrappers |
+| `src/scripts/cli.py` | Top-level command parsing and dispatch |
+| `src/scripts/__main__.py` | `python -m scripts` entrypoint |
+| `src/scripts/config/` | Environment-driven runtime config |
+| `src/scripts/jobs/` | Job orchestration and workflow logic |
+| `src/scripts/utils/` | Shared helpers for extensions, file metadata, organizer paths, logging, locking, media commands, and state |
 | `tests/unit/` | Fast unit tests grouped by config, jobs, utilities, and script behavior |
 
 Architecture graph:
 
 ```text
 +---------------------------+
-| CLI / Script Entrypoints  |
-| (__main__.py, scripts/*)  |
+| CLI Entrypoint            |
+| (__main__.py)             |
 +-------------+-------------+
               |
               v
@@ -109,8 +108,7 @@ Behavior:
 Entry points:
 
 ```bash
-python -m nas_scripts sync-media-library
-python scripts/sync_media_library.py
+python -m scripts sync-media-library
 ```
 
 Flow graph:
@@ -139,7 +137,7 @@ SOURCE_DIR ---> sync_media_files() -----------+
 Important detail:
 
 - Already verified files are skipped on later runs unless the policy version changes or the file changes.
-- Temporary files created by this script (`.nas_scripts_tmp.*`) under `DEST_DIR` are removed during cleanup.
+- Temporary files created by this script (`.scripts_tmp.*`) under `DEST_DIR` are removed during cleanup.
 
 Stream filtering internals (`sync-media-library`):
 
@@ -150,10 +148,10 @@ Stream filtering internals (`sync-media-library`):
 5. If probing shows only English audio/subtitle streams (`eng`/`en`), the file is marked verified and no remux is executed.
 6. If non-English streams exist, the filter runs in iterative passes with a maximum of 20 passes per file.
 7. In each pass, exactly one non-English stream is selected (the first matching stream index) and excluded from mapping.
-8. `ffmpeg` remuxes with `-c copy` into `.nas_scripts_tmp.<ext>` so streams are copied without re-encoding.
+8. `ffmpeg` remuxes with `-c copy` into `.scripts_tmp.<ext>` so streams are copied without re-encoding.
 9. The temporary output is re-probed; only if verification succeeds is it atomically moved over the original file.
 10. If non-English streams remain, the next pass starts; if none remain, processing for that file stops.
-11. Any leftover `.nas_scripts_tmp.*` files are removed at the end of the job.
+11. Any leftover `.scripts_tmp.*` files are removed at the end of the job.
 
 Why this avoids unnecessary work:
 
@@ -163,7 +161,7 @@ Why this avoids unnecessary work:
 - `ffmpeg` uses stream copy (`-c copy`) instead of expensive transcoding.
 - Processing stops as soon as the file is fully clean.
 
-### `organize-temp-media` and `organize-temp-downloads`
+### `organize-temp-photos` and `organize-temp-downloads`
 
 Purpose: sort temporary photos, videos, and downloads into dated folders.
 
@@ -172,21 +170,19 @@ Behavior:
 | Item | Details |
 | --- | --- |
 | Input | Matching files in `TEMP_DIR`; `organize-temp-downloads` also moves top-level directories |
-| Output | `organize-temp-media`: `YYYY-MM/raw`, `YYYY-MM/img`, or `YYYY-MM/vid`; `organize-temp-downloads`: `YYYY-MM` only |
+| Output | `organize-temp-photos`: `YYYY-MM/raw`, `YYYY-MM/img`, or `YYYY-MM/vid`; `organize-temp-downloads`: `YYYY-MM` only |
 | Default scan mode | Top-level files only for media; top-level files and non-month directories for downloads |
-| Optional scan mode | `--reorganize-existing` scans nested legacy folders too |
+| Optional scan mode | `--reorganize-existing` scans nested existing folders too |
 | Timestamps | Moved files and directories keep their original access and modified timestamps where the filesystem permits it |
 | Safety | Uses a lock file to prevent overlapping runs |
 
 Entry points:
 
 ```bash
-python -m nas_scripts organize-temp-media
-python -m nas_scripts organize-temp-media --reorganize-existing
-python -m nas_scripts organize-temp-downloads
-python -m nas_scripts organize-temp-downloads --reorganize-existing
-python scripts/organize_temp_media.py
-python scripts/organize_temp_downloads.py
+python -m scripts organize-temp-photos
+python -m scripts organize-temp-photos --reorganize-existing
+python -m scripts organize-temp-downloads
+python -m scripts organize-temp-downloads --reorganize-existing
 ```
 
 Flow graph:
@@ -217,15 +213,15 @@ Locking:
 
 Logging:
 
-- Each job writes to its own log file under `LOG_DIR`.
+- Each job writes to its own log file under the repository-local `.logs/` directory.
 - Logs use a shared format with timestamp, level, script name, and process id.
 - Rotated log files stay uncompressed for 3 weeks, are compressed with gzip after that, and are deleted after 3 months.
-- If the configured log directory cannot be created, the logger falls back to a local `./.logs/` directory when possible.
+- The logger does not write job logs to NAS or temporary system directories.
 
 State:
 
 - `sync-media-library` stores checksum-based verification state in JSON.
-- `organize-temp-media` does not keep a persistent state file.
+- `organize-temp-photos` does not keep a persistent state file.
 
 ## Configuration
 
@@ -236,7 +232,6 @@ Environment variables:
 - `SOURCE_DIR`
 - `DEST_DIR`
 - `LOCK_FILE`
-- `LOG_DIR`
 - `STATE_FILE`
 - `MEDIA_EXTENSIONS`
 - `FFMPEG_THREADS`
@@ -246,7 +241,6 @@ Defaults:
 - `SOURCE_DIR`: `/volume1/Torrents`
 - `DEST_DIR`: `/volume1/Media`
 - `LOCK_FILE`: `/tmp/media.lock`
-- `LOG_DIR`: `/volume1/Temp/.logs`
 - `STATE_FILE`: `/volume1/Temp/.logs/sync_media_library.state.json`
 
 ### Temp Media Organizer
@@ -255,7 +249,6 @@ Environment variables:
 
 - `TEMP_DIR`
 - `LOCK_FILE`
-- `LOG_DIR`
 - `REORGANIZE_EXISTING`
 - `FILE_EXTENSIONS`
 - `RAW_EXTENSIONS`
@@ -266,9 +259,8 @@ Environment variables:
 
 Defaults:
 
-- `TEMP_DIR`: `/volume1/Temp/Fotos` for `organize-temp-media`, `/volume1/Temp/Downloads` for `organize-temp-downloads`
-- `LOCK_FILE`: `/tmp/organize_temp_media.lock` for `organize-temp-media`, `/tmp/organize_temp_downloads.lock` for `organize-temp-downloads`
-- `LOG_DIR`: `/volume1/Temp/.logs`
+- `TEMP_DIR`: `/volume1/Temp/Fotos` for `organize-temp-photos`, `/volume1/Temp/Downloads` for `organize-temp-downloads`
+- `LOCK_FILE`: `/tmp/organize_temp_photos.lock` for `organize-temp-photos`, `/tmp/organize_temp_downloads.lock` for `organize-temp-downloads`
 - `CONFLICT_POLICY`: `overwrite`
 
 Notes:
@@ -281,17 +273,9 @@ Notes:
 ### Direct CLI
 
 ```bash
-python -m nas_scripts sync-media-library
-python -m nas_scripts organize-temp-media
-python -m nas_scripts organize-temp-downloads
-```
-
-### Direct Scripts
-
-```bash
-python scripts/sync_media_library.py
-python scripts/organize_temp_media.py
-python scripts/organize_temp_downloads.py
+python -m scripts sync-media-library
+python -m scripts organize-temp-photos
+python -m scripts organize-temp-downloads
 ```
 
 ### Cron Examples
@@ -299,14 +283,14 @@ python scripts/organize_temp_downloads.py
 Media sync:
 
 ```bash
-*/5 * * * * cd /path/to/nas-scripts && /path/to/nas-scripts/.venv/bin/python -m nas_scripts sync-media-library
+*/5 * * * * cd /path/to/scripts && /path/to/scripts/.venv/bin/python -m scripts sync-media-library
 ```
 
 Temp organizer:
 
 ```bash
-15 23 * * * cd /path/to/nas-scripts && /path/to/nas-scripts/.venv/bin/python -m nas_scripts organize-temp-media
-30 23 * * * cd /path/to/nas-scripts && /path/to/nas-scripts/.venv/bin/python -m nas_scripts organize-temp-downloads
+15 23 * * * cd /path/to/scripts && /path/to/scripts/.venv/bin/python -m scripts organize-temp-photos
+30 23 * * * cd /path/to/scripts && /path/to/scripts/.venv/bin/python -m scripts organize-temp-downloads
 ```
 
 ## System Dependencies
@@ -371,19 +355,19 @@ Run only the unit suites:
 Generate an explicit coverage report:
 
 ```bash
-.venv/bin/pytest --cov=src/nas_scripts --cov-report=term-missing
+.venv/bin/pytest --cov=src/scripts --cov-report=term-missing
 ```
 
 Run verbose coverage with test output and branch details:
 
 ```bash
-.venv/bin/pytest -vv --cov=src/nas_scripts --cov-branch --cov-report=term-missing
+.venv/bin/pytest -vv --cov=src/scripts --cov-branch --cov-report=term-missing
 ```
 
 Generate an HTML coverage report:
 
 ```bash
-.venv/bin/pytest --cov=src/nas_scripts --cov-branch --cov-report=html
+.venv/bin/pytest --cov=src/scripts --cov-branch --cov-report=html
 ```
 
 Then open `htmlcov/index.html` in your browser.
@@ -405,9 +389,8 @@ If that directory is missing, those fixture-dependent tests are skipped automati
 
 ## Development Rules
 
-- Keep job-specific behavior in `src/nas_scripts/jobs/`.
-- Keep reusable logic in `src/nas_scripts/utils/`.
-- Keep `scripts/` thin.
+- Keep job-specific behavior in `src/scripts/jobs/`.
+- Keep reusable logic in `src/scripts/utils/`.
 - Keep jobs isolated from each other.
 - Update or add tests when behavior changes.
 - Keep log output expressive and consistent.

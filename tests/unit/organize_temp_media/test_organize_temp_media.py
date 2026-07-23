@@ -3,14 +3,14 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from nas_scripts.cli import main as cli_main
-from nas_scripts.config.organize_temp_media import (
+from scripts.cli import main as cli_main
+from scripts.config.organize_temp_media import (
     OrganizeTempMediaConfig,
     load_organize_temp_downloads_config,
 )
-from nas_scripts.jobs.organize_temp_downloads import main as downloads_main
-from nas_scripts.jobs.organize_temp_media import main, organize_files
-from nas_scripts.utils.images import (
+from scripts.jobs.organize_temp_downloads import main as downloads_main
+from scripts.jobs.organize_temp_media import main, organize_files
+from scripts.utils.images import (
     build_destination_dir,
     collect_matching_files,
     collect_top_level_matching_files,
@@ -18,11 +18,11 @@ from nas_scripts.utils.images import (
     is_month_folder_name,
     month_folder_name,
 )
-from nas_scripts.utils.logging import setup_script_logger
+from scripts.utils.logging import setup_script_logger
 from ..factories import make_organize_config as make_config
 
 
-JOB_MODULE = Path("src/nas_scripts/jobs/organize_temp_media.py")
+JOB_MODULE = Path("src/scripts/jobs/organize_temp_media.py")
 
 
 def _record_cli_call(called: dict[str, bool | None], reorganize_existing: bool | None) -> int:
@@ -40,11 +40,12 @@ def test_collect_matching_files_filters_extensions(tmp_path: Path) -> None:
     root.mkdir()
     (root / "photo.jpg").write_text("jpg", encoding="utf-8")
     (root / "raw.arw").write_text("raw", encoding="utf-8")
+    (root / "negative.dng").write_text("dng", encoding="utf-8")
     (root / "note.txt").write_text("txt", encoding="utf-8")
 
-    matches = collect_matching_files(root, ("jpg", "arw"))
+    matches = collect_matching_files(root, ("jpg", "arw", "dng"))
 
-    assert [path.name for path in matches] == ["photo.jpg", "raw.arw"]
+    assert [path.name for path in matches] == ["negative.dng", "photo.jpg", "raw.arw"]
 
 
 def test_collect_top_level_matching_files_ignores_nested_directories(tmp_path: Path) -> None:
@@ -77,15 +78,15 @@ def test_collect_top_level_matching_items_includes_unsorted_directories(tmp_path
 def test_job_module_stays_isolated_from_other_script_modules() -> None:
     source = JOB_MODULE.read_text(encoding="utf-8")
 
-    assert "nas_scripts.jobs.sync_media_library" not in source
-    assert "nas_scripts.config.sync_media_library" not in source
-    assert "nas_scripts.utils.media" not in source
+    assert "scripts.jobs.sync_media_library" not in source
+    assert "scripts.config.sync_media_library" not in source
+    assert "scripts.utils.media" not in source
 
 
-def test_cli_runs_organize_temp_media_command(monkeypatch) -> None:
-    monkeypatch.setattr("sys.argv", ["nas-scripts", "organize-temp-media"])
+def test_cli_runs_organize_temp_photos_command(monkeypatch) -> None:
+    monkeypatch.setattr("sys.argv", ["scripts", "organize-temp-photos"])
     monkeypatch.setattr(
-        "nas_scripts.cli.organize_temp_media_main",
+        "scripts.cli.organize_temp_photos_main",
         lambda reorganize_existing=None: 0,
     )
     assert cli_main() == 0
@@ -96,10 +97,10 @@ def test_cli_passes_reorganize_existing_flag(monkeypatch) -> None:
 
     monkeypatch.setattr(
         "sys.argv",
-        ["nas-scripts", "organize-temp-media", "--reorganize-existing"],
+        ["scripts", "organize-temp-photos", "--reorganize-existing"],
     )
     monkeypatch.setattr(
-        "nas_scripts.cli.organize_temp_media_main",
+        "scripts.cli.organize_temp_photos_main",
         lambda reorganize_existing=None: _record_cli_call(called, reorganize_existing),
     )
 
@@ -112,10 +113,10 @@ def test_cli_runs_organize_temp_downloads_command(monkeypatch) -> None:
 
     monkeypatch.setattr(
         "sys.argv",
-        ["nas-scripts", "organize-temp-downloads", "--reorganize-existing"],
+        ["scripts", "organize-temp-downloads", "--reorganize-existing"],
     )
     monkeypatch.setattr(
-        "nas_scripts.cli.organize_temp_downloads_main",
+        "scripts.cli.organize_temp_downloads_main",
         lambda reorganize_existing=None: _record_cli_call(called, reorganize_existing),
     )
 
@@ -264,12 +265,15 @@ def test_organize_files_preserves_file_modified_timestamp(tmp_path: Path) -> Non
     original_atime_ns = 1_700_000_000_000_000_000
     original_mtime_ns = 1_600_000_000_123_456_789
     os.utime(photo, ns=(original_atime_ns, original_mtime_ns))
-    expected_destination = build_destination_dir(
-        photo,
-        temp_dir=config.temp_dir,
-        raw_extensions=config.raw_extensions,
-        video_extensions=config.video_extensions,
-    ) / photo.name
+    expected_destination = (
+        build_destination_dir(
+            photo,
+            temp_dir=config.temp_dir,
+            raw_extensions=config.raw_extensions,
+            video_extensions=config.video_extensions,
+        )
+        / photo.name
+    )
     logger = setup_script_logger(
         f"organize_temp_media_timestamps_{tmp_path.name}",
         config.log_file,
@@ -432,11 +436,11 @@ def test_main_can_override_reorganize_existing(monkeypatch, tmp_path: Path) -> N
     seen: dict[str, bool] = {}
 
     monkeypatch.setattr(
-        "nas_scripts.jobs.organize_temp_media.load_organize_temp_media_config",
+        "scripts.jobs.organize_temp_media.load_organize_temp_media_config",
         lambda: config,
     )
     monkeypatch.setattr(
-        "nas_scripts.jobs.organize_temp_media.organize_files",
+        "scripts.jobs.organize_temp_media.organize_files",
         lambda cfg, logger: _record_reorganize_flag(seen, cfg.reorganize_existing),
     )
 
@@ -450,11 +454,11 @@ def test_downloads_main_uses_downloads_config(monkeypatch, tmp_path: Path) -> No
     seen: dict[str, bool] = {}
 
     monkeypatch.setattr(
-        "nas_scripts.jobs.organize_temp_downloads.load_organize_temp_downloads_config",
+        "scripts.jobs.organize_temp_downloads.load_organize_temp_downloads_config",
         lambda: config,
     )
     monkeypatch.setattr(
-        "nas_scripts.jobs.organize_temp_media.organize_files",
+        "scripts.jobs.organize_temp_media.organize_files",
         lambda cfg, logger: _record_reorganize_flag(seen, cfg.reorganize_existing),
     )
 
@@ -500,7 +504,9 @@ def test_organize_files_skips_existing_destination_when_policy_is_skip(tmp_path:
     destination = config.temp_dir / month_folder_name(source) / "img" / source.name
     destination.parent.mkdir(parents=True)
     destination.write_text("old", encoding="utf-8")
-    logger = setup_script_logger(f"organize_temp_media_skip_conflict_{tmp_path.name}", config.log_file)
+    logger = setup_script_logger(
+        f"organize_temp_media_skip_conflict_{tmp_path.name}", config.log_file
+    )
 
     assert organize_files(config, logger=logger) == 0
     assert source.exists()

@@ -1,2 +1,1 @@
-"""Integration tests for nas-scripts."""
-
+"""Integration tests for scripts."""

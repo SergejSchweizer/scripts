@@ -77,21 +77,18 @@ class DefaultSyncUpdatePolicy:
         source_stat = source_path.stat()
         dest_stat = dest_path.stat()
 
-        if is_verified_cache_entry_valid(
-            previous,
-            current_size=dest_stat.st_size,
-            current_mtime_ns=dest_stat.st_mtime_ns,
-            validation_strategies=(_STAT_VALIDATION_STRATEGY,),
-        ) and source_stat.st_mtime_ns <= dest_stat.st_mtime_ns:
+        if (
+            is_verified_cache_entry_valid(
+                previous,
+                current_size=dest_stat.st_size,
+                current_mtime_ns=dest_stat.st_mtime_ns,
+                validation_strategies=(_STAT_VALIDATION_STRATEGY,),
+            )
+            and source_stat.st_mtime_ns <= dest_stat.st_mtime_ns
+        ):
             return SyncUpdateDecision(
                 should_copy=False,
                 reason="preserve_filtered_verified_current_policy",
-            )
-
-        if is_verified_state_entry(previous) and source_stat.st_mtime_ns <= dest_stat.st_mtime_ns:
-            return SyncUpdateDecision(
-                should_copy=False,
-                reason="preserve_filtered_verified_legacy_policy",
             )
 
         return SyncUpdateDecision(should_copy=True, reason="checksum_required")
@@ -147,13 +144,6 @@ def cache_is_eligible_for_reuse(previous: VerifiedStateEntry | None) -> bool:
     if previous is None:
         return False
     if previous.get("policy_version") != FILTER_POLICY_VERSION:
-        return False
-    return bool(previous.get("verified", False))
-
-
-def is_verified_state_entry(previous: VerifiedStateEntry | None) -> bool:
-    """Check whether a state entry marks a file as verified, independent of policy version."""
-    if previous is None:
         return False
     return bool(previous.get("verified", False))
 

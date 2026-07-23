@@ -10,7 +10,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from nas_scripts.config.env import env_bool, env_choice, env_csv, env_path
+from scripts.config.env import env_bool, env_choice, env_csv, env_path
 
 
 DEFAULT_TEMP_DIR = Path("/volume1/Temp/Fotos")

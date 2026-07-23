@@ -4,16 +4,16 @@ from pathlib import Path
 
 import pytest
 
-from nas_scripts.config.organize_temp_media import OrganizeTempMediaConfig
-from nas_scripts.config.sync_media_library import SyncMediaLibraryConfig, load_sync_media_library_config
-from nas_scripts.jobs.organize_temp_media import main as organize_main
-from nas_scripts.jobs.organize_temp_media import organize_files
-from nas_scripts.jobs.sync_media_library import keep_only_english_audio_and_subtitles
-from nas_scripts.jobs.sync_media_library import main as sync_main
-from nas_scripts.utils.images import month_folder_name
-from nas_scripts.utils.locking import AlreadyLockedError
-from nas_scripts.utils.logging import setup_script_logger
-from nas_scripts.utils.media import MediaStream
+from scripts.config.organize_temp_media import OrganizeTempMediaConfig
+from scripts.config.sync_media_library import SyncMediaLibraryConfig, load_sync_media_library_config
+from scripts.jobs.organize_temp_media import main as organize_main
+from scripts.jobs.organize_temp_media import organize_files
+from scripts.jobs.sync_media_library import keep_only_english_audio_and_subtitles
+from scripts.jobs.sync_media_library import main as sync_main
+from scripts.utils.images import month_folder_name
+from scripts.utils.locking import AlreadyLockedError
+from scripts.utils.logging import setup_script_logger
+from scripts.utils.media import MediaStream
 
 
 def test_job_main_returns_zero_when_already_locked(
@@ -34,9 +34,11 @@ def test_job_main_returns_zero_when_already_locked(
         extensions=sync_cfg.extensions,
         ffmpeg_threads=1,
     )
-    monkeypatch.setattr("nas_scripts.jobs.sync_media_library.load_sync_media_library_config", lambda: sync_cfg)
     monkeypatch.setattr(
-        "nas_scripts.utils.job.FileLock",
+        "scripts.jobs.sync_media_library.load_sync_media_library_config", lambda: sync_cfg
+    )
+    monkeypatch.setattr(
+        "scripts.utils.job.FileLock",
         lambda _path: (_ for _ in ()).throw(AlreadyLockedError("x")),
     )
     assert sync_main() == 0
@@ -57,11 +59,11 @@ def test_job_main_returns_zero_when_already_locked(
     org_cfg.conflict_policy = "overwrite"
 
     monkeypatch.setattr(
-        "nas_scripts.jobs.organize_temp_media.load_organize_temp_media_config",
+        "scripts.jobs.organize_temp_media.load_organize_temp_media_config",
         lambda: org_cfg,
     )
     monkeypatch.setattr(
-        "nas_scripts.utils.job.FileLock",
+        "scripts.utils.job.FileLock",
         lambda _path: (_ for _ in ()).throw(AlreadyLockedError("x")),
     )
     assert organize_main() == 0
@@ -125,8 +127,10 @@ def test_sync_main_uses_run_job_when_source_missing(
         ffmpeg_threads=1,
     )
     cfg.dest_dir.mkdir()
-    monkeypatch.setattr("nas_scripts.jobs.sync_media_library.load_sync_media_library_config", lambda: cfg)
-    monkeypatch.setattr("nas_scripts.jobs.sync_media_library.run_job", lambda _cfg, logger: 1)
+    monkeypatch.setattr(
+        "scripts.jobs.sync_media_library.load_sync_media_library_config", lambda: cfg
+    )
+    monkeypatch.setattr("scripts.jobs.sync_media_library.run_job", lambda _cfg, logger: 1)
     assert sync_main() == 1
 
 
@@ -150,31 +154,33 @@ def test_sync_keep_only_handles_probe_and_recheck_exceptions(
     second.write_text("x", encoding="utf-8")
 
     monkeypatch.setattr(
-        "nas_scripts.jobs.sync_media_library.collect_relative_media_files",
+        "scripts.jobs.sync_media_library.collect_relative_media_files",
         lambda root, extensions: ["a.mkv", "b.mkv"],
     )
-    monkeypatch.setattr("nas_scripts.jobs.sync_media_library.load_state", lambda _state: {})
-    monkeypatch.setattr("nas_scripts.jobs.sync_media_library.sha256_file", lambda _path: "s")
+    monkeypatch.setattr("scripts.jobs.sync_media_library.load_state", lambda _state: {})
+    monkeypatch.setattr("scripts.jobs.sync_media_library.sha256_file", lambda _path: "s")
     monkeypatch.setattr(
-        "nas_scripts.jobs.sync_media_library.probe_streams",
-        lambda path: (_ for _ in ()).throw(RuntimeError("probe fail"))
-        if path == first
-        else [MediaStream(index=0, codec_type="audio", language="rus")],
+        "scripts.jobs.sync_media_library.probe_streams",
+        lambda path: (
+            (_ for _ in ()).throw(RuntimeError("probe fail"))
+            if path == first
+            else [MediaStream(index=0, codec_type="audio", language="rus")]
+        ),
     )
     monkeypatch.setattr(
-        "nas_scripts.jobs.sync_media_library.filter_to_english_audio_and_subtitles",
+        "scripts.jobs.sync_media_library.filter_to_english_audio_and_subtitles",
         lambda file_path, ffmpeg_threads, logger=None: True,
     )
     monkeypatch.setattr(
-        "nas_scripts.jobs.sync_media_library.find_non_english_audio_subtitle_streams",
+        "scripts.jobs.sync_media_library.find_non_english_audio_subtitle_streams",
         lambda streams: [0],
     )
     monkeypatch.setattr(
-        "nas_scripts.jobs.sync_media_library.remove_leftover_temp_files",
+        "scripts.jobs.sync_media_library.remove_leftover_temp_files",
         lambda _root: [],
     )
     monkeypatch.setattr(
-        "nas_scripts.jobs.sync_media_library.save_state",
+        "scripts.jobs.sync_media_library.save_state",
         lambda _state, _payload: None,
     )
 
@@ -203,25 +209,25 @@ def test_sync_keep_only_marks_clean_files_in_state(
     saved: dict[str, dict[str, object]] = {}
 
     monkeypatch.setattr(
-        "nas_scripts.jobs.sync_media_library.collect_relative_media_files",
+        "scripts.jobs.sync_media_library.collect_relative_media_files",
         lambda root, extensions: ["ok.mkv"],
     )
-    monkeypatch.setattr("nas_scripts.jobs.sync_media_library.load_state", lambda _state: {})
-    monkeypatch.setattr("nas_scripts.jobs.sync_media_library.sha256_file", lambda _path: "digest")
+    monkeypatch.setattr("scripts.jobs.sync_media_library.load_state", lambda _state: {})
+    monkeypatch.setattr("scripts.jobs.sync_media_library.sha256_file", lambda _path: "digest")
     monkeypatch.setattr(
-        "nas_scripts.jobs.sync_media_library.probe_streams",
+        "scripts.jobs.sync_media_library.probe_streams",
         lambda _path: [MediaStream(index=0, codec_type="audio", language="eng")],
     )
     monkeypatch.setattr(
-        "nas_scripts.jobs.sync_media_library.find_non_english_audio_subtitle_streams",
+        "scripts.jobs.sync_media_library.find_non_english_audio_subtitle_streams",
         lambda _streams: [],
     )
     monkeypatch.setattr(
-        "nas_scripts.jobs.sync_media_library.remove_leftover_temp_files",
+        "scripts.jobs.sync_media_library.remove_leftover_temp_files",
         lambda _root: [],
     )
     monkeypatch.setattr(
-        "nas_scripts.jobs.sync_media_library.save_state",
+        "scripts.jobs.sync_media_library.save_state",
         lambda _state, payload: saved.update(payload),
     )
 

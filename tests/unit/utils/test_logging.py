@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from nas_scripts.utils.logging import LOG_DATE_FORMAT, LOG_FORMAT, setup_script_logger
+from scripts.utils.logging import LOG_DATE_FORMAT, LOG_FORMAT, setup_script_logger
 
 
 def test_setup_logger_uses_only_requested_local_log_file(
@@ -24,7 +24,7 @@ def test_setup_logger_uses_only_requested_local_log_file(
         calls.append(path_obj)
         return DummyFileHandler()
 
-    monkeypatch.setattr("nas_scripts.utils.logging.TimedRotatingFileHandler", fake_handler)
+    monkeypatch.setattr("scripts.utils.logging.TimedRotatingFileHandler", fake_handler)
     logger = setup_script_logger("local_test", local_log)
     assert len(logger.handlers) >= 2
     assert calls == [local_log]
@@ -45,7 +45,7 @@ def test_setup_logger_handles_local_log_path_failing(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setattr(
-        "nas_scripts.utils.logging.TimedRotatingFileHandler",
+        "scripts.utils.logging.TimedRotatingFileHandler",
         lambda *args, **_kwargs: (_ for _ in ()).throw(OSError("nope")),
     )
     logger = setup_script_logger("no_file_test", tmp_path / ".logs" / "no_file_test.log")
@@ -71,7 +71,7 @@ def test_setup_logger_compresses_and_deletes_rotated_logs(tmp_path: Path) -> Non
     os.utime(expired_archive, (now - 100 * 24 * 60 * 60, now - 100 * 24 * 60 * 60))
     os.utime(unrelated_file, (now - 100 * 24 * 60 * 60, now - 100 * 24 * 60 * 60))
 
-    from nas_scripts.utils.logging import _maintain_log_archives
+    from scripts.utils.logging import _maintain_log_archives
 
     _maintain_log_archives(log_file, now=now)
 

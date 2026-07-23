@@ -1,2 +1,1 @@
-"""Unit tests for nas-scripts."""
-
+"""Unit tests for scripts."""

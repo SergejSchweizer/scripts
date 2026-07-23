@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import pytest
 
-from nas_scripts.config.organize_temp_media import (
+from scripts.config.organize_temp_media import (
     _parse_bool_env,
     _parse_conflict_policy,
     _parse_csv_env,
     load_organize_temp_downloads_config,
     load_organize_temp_media_config,
 )
-from nas_scripts.config.sync_media_library import load_sync_media_library_config
+from scripts.config.sync_media_library import load_sync_media_library_config
 
 
 def test_parse_helpers_cover_invalid_and_empty_inputs() -> None:

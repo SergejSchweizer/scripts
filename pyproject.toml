@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nas-scripts"
+name = "scripts"
 version = "0.1.0"
 description = "Python automation scripts for a UGREEN NASync DXP4800 Plus"
 readme = "README.md"
@@ -25,13 +25,13 @@ target-version = "py314"
 
 [tool.mypy]
 python_version = "3.14"
-files = ["src", "scripts"]
+files = ["src"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "--cov=src/nas_scripts --cov-report=term-missing --cov-fail-under=92"
+addopts = "--cov=src/scripts --cov-report=term-missing --cov-fail-under=92"
 markers = [
     "integration: marks tests that touch external systems",
 ]
