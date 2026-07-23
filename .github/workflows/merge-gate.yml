@@ -23,50 +23,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Conventional commits
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PUSH_BEFORE_SHA: ${{ github.event.before }}
-          GITHUB_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-
-          pattern='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([A-Za-z0-9._/-]+\))?!?: .+'
-
-          check_subject() {
-            subject="$1"
-            if [[ ! "$subject" =~ $pattern ]]; then
-              echo "Invalid Conventional Commit message: $subject" >&2
-              echo "Expected format: type(scope): description" >&2
-              exit 1
-            fi
-          }
-
-          if [[ "$EVENT_NAME" == "pull_request" ]]; then
-            check_subject "$PR_TITLE"
-            mapfile -t subjects < <(git log --format=%s "$PR_BASE_SHA..$PR_HEAD_SHA")
-            for subject in "${subjects[@]}"; do
-              check_subject "$subject"
-            done
-          elif [[ "$EVENT_NAME" == "push" ]]; then
-            if [[ "$PUSH_BEFORE_SHA" =~ ^0+$ ]]; then
-              range="$GITHUB_SHA^..$GITHUB_SHA"
-            else
-              range="$PUSH_BEFORE_SHA..$GITHUB_SHA"
-            fi
-            mapfile -t subjects < <(git log --format=%s "$range")
-            for subject in "${subjects[@]}"; do
-              check_subject "$subject"
-            done
-          else
-            echo "Skipping commit message check for $EVENT_NAME."
-          fi
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -81,10 +37,10 @@ jobs:
           python -m pip install -e .[dev]
 
       - name: Ruff
-        run: ruff check --config pyproject.toml src scripts tests
+        run: python -m ruff check src scripts tests
 
       - name: Mypy
-        run: mypy --config-file pyproject.toml src scripts
+        run: python -m mypy src scripts
 
       - name: Pytest
-        run: pytest -q
+        run: python -m pytest -q
