@@ -9,8 +9,24 @@ from __future__ import annotations
 import argparse
 
 from nas_scripts.jobs.organize_temp_downloads import main as organize_temp_downloads_main
-from nas_scripts.jobs.organize_temp_media import main as organize_temp_media_main
+from nas_scripts.jobs.organize_temp_media import main as organize_temp_photos_main
 from nas_scripts.jobs.sync_media_library import main as sync_media_library_main
+
+organize_temp_media_main = organize_temp_photos_main
+
+
+def _configure_photo_organizer_parser(parser: argparse.ArgumentParser) -> None:
+    """Attach shared photo-organizer options and dispatch behavior."""
+    parser.add_argument(
+        "--reorganize-existing",
+        action="store_true",
+        help="Also scan existing subdirectories and reorganize older folder layouts into raw/img/vid.",
+    )
+    parser.set_defaults(
+        handler=lambda args: organize_temp_photos_main(
+            reorganize_existing=args.reorganize_existing,
+        )
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -30,19 +46,16 @@ def build_parser() -> argparse.ArgumentParser:
     sync_parser.set_defaults(handler=lambda args: sync_media_library_main())
 
     organize_parser = subparsers.add_parser(
+        "organize-temp-photos",
+        help="Sort temporary photo and video files into dated folders.",
+    )
+    _configure_photo_organizer_parser(organize_parser)
+
+    legacy_organize_parser = subparsers.add_parser(
         "organize-temp-media",
-        help="Sort temporary image and media files into dated folders.",
+        help=argparse.SUPPRESS,
     )
-    organize_parser.add_argument(
-        "--reorganize-existing",
-        action="store_true",
-        help="Also scan existing subdirectories and reorganize older folder layouts into raw/img/vid.",
-    )
-    organize_parser.set_defaults(
-        handler=lambda args: organize_temp_media_main(
-            reorganize_existing=args.reorganize_existing,
-        )
-    )
+    _configure_photo_organizer_parser(legacy_organize_parser)
 
     downloads_parser = subparsers.add_parser(
         "organize-temp-downloads",
