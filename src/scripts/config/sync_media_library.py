@@ -11,7 +11,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from nas_scripts.config.env import env_choice, env_csv, env_int, env_path
+from scripts.config.env import env_choice, env_csv, env_int, env_path
 
 
 DEFAULT_SOURCE_DIR = Path("/volume1/Torrents")

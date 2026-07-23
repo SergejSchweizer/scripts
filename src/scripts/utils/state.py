@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 from typing import cast
 
-from nas_scripts.utils.verification_cache import VerificationState
+from scripts.utils.verification_cache import VerificationState
 
 
 def load_state(state_file: Path) -> VerificationState:
@@ -20,7 +20,7 @@ def load_state(state_file: Path) -> VerificationState:
         return {}
     try:
         state = json.loads(state_file.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         # Corrupt/unreadable state should not block job execution.
         return {}
     if not isinstance(state, dict):

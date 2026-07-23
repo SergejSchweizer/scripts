@@ -7,8 +7,8 @@ from pathlib import Path
 import time
 from typing import Callable, Protocol
 
-from nas_scripts.utils.locking import AlreadyLockedError, FileLock
-from nas_scripts.utils.logging import setup_script_logger
+from scripts.utils.locking import AlreadyLockedError, FileLock
+from scripts.utils.logging import setup_script_logger
 
 
 class LockedJobConfig(Protocol):

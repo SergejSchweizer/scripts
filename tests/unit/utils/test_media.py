@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from nas_scripts.utils.media import (
+from scripts.utils.media import (
     MediaCommandAdapter,
     MediaStream,
     SubprocessMediaCommandAdapter,
@@ -51,7 +51,7 @@ def test_subprocess_media_adapter_sets_safe_text_decoding(monkeypatch: pytest.Mo
         captured_calls.append(kwargs)
         return DummyResult(returncode=0)
 
-    monkeypatch.setattr("nas_scripts.utils.media.subprocess.run", fake_run)
+    monkeypatch.setattr("scripts.utils.media.subprocess.run", fake_run)
     adapter = SubprocessMediaCommandAdapter()
     source = Path("/tmp/source.mkv")
     target = Path("/tmp/target.mkv")
@@ -77,7 +77,7 @@ def test_filter_to_english_returns_true_when_already_clean(
     file_path = tmp_path / "movie.mkv"
     file_path.write_text("x", encoding="utf-8")
     monkeypatch.setattr(
-        "nas_scripts.utils.media.probe_streams",
+        "scripts.utils.media.probe_streams",
         lambda _path: [
             MediaStream(index=0, codec_type="video", language=None),
             MediaStream(index=1, codec_type="audio", language="eng"),
@@ -118,7 +118,7 @@ def test_filter_to_english_returns_false_when_map_args_empty(
     file_path = tmp_path / "movie.mkv"
     file_path.write_text("x", encoding="utf-8")
     monkeypatch.setattr(
-        "nas_scripts.utils.media.probe_streams",
+        "scripts.utils.media.probe_streams",
         lambda _path: [MediaStream(index=1, codec_type="audio", language="rus")],
     )
     assert not filter_to_english_audio_and_subtitles(file_path, ffmpeg_threads=1)
@@ -129,7 +129,7 @@ def test_filter_to_english_returns_false_when_verify_probe_fails(
 ) -> None:
     file_path = tmp_path / "movie.mkv"
     file_path.write_text("x", encoding="utf-8")
-    temp_name = f".nas_scripts_tmp.{file_path.suffix.lstrip('.')}"
+    temp_name = f".scripts_tmp.{file_path.suffix.lstrip('.')}"
 
     def fake_probe(path: Path) -> list[MediaStream]:
         if path == file_path:
@@ -157,8 +157,8 @@ def test_filter_to_english_returns_false_when_verify_probe_fails(
             target_path.write_text("tmp", encoding="utf-8")
             return DummyResult(returncode=0)
 
-    monkeypatch.setattr("nas_scripts.utils.media.probe_streams", fake_probe)
-    monkeypatch.setattr("nas_scripts.utils.media._build_media_command_adapter", lambda: FakeAdapter())
+    monkeypatch.setattr("scripts.utils.media.probe_streams", fake_probe)
+    monkeypatch.setattr("scripts.utils.media._build_media_command_adapter", lambda: FakeAdapter())
     assert not filter_to_english_audio_and_subtitles(file_path, ffmpeg_threads=1)
 
 

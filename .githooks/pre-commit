@@ -13,10 +13,10 @@ if [[ ! -x "$PYTHON" ]]; then
 fi
 
 echo "Running Ruff..."
-"$PYTHON" -m ruff check src scripts tests
+"$PYTHON" -m ruff check src tests
 
 echo "Running MyPy..."
-"$PYTHON" -m mypy src scripts
+"$PYTHON" -m mypy
 
 echo "Running tests..."
 "$PYTHON" -m pytest -q

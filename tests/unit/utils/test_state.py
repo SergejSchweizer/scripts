@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from nas_scripts.utils.state import load_state
+from scripts.utils.state import load_state
 
 
 def test_load_state_returns_empty_for_invalid_json(tmp_path: Path) -> None:

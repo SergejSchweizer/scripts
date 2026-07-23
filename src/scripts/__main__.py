@@ -1,6 +1,6 @@
-"""Module entrypoint for ``python -m nas_scripts``."""
+"""Module entrypoint for ``python -m scripts``."""
 
-from nas_scripts.cli import main
+from scripts.cli import main
 
 
 if __name__ == "__main__":

@@ -12,6 +12,8 @@
 !AGENT.md
 !AGENTS.md
 !pyproject.toml
+!cron/
+!cron/**
 !src/
 !src/**
 !tests/

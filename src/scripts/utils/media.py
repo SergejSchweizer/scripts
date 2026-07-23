@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from nas_scripts.utils.extensions import has_extension
+from scripts.utils.extensions import has_extension
 
 
 @dataclass(frozen=True)
@@ -235,7 +235,7 @@ def filter_to_english_audio_and_subtitles(
     - Logs removed stream details as ``index:codec_type:language``.
     """
     max_passes = 20
-    temp_file = file_path.with_name(f".nas_scripts_tmp.{file_path.suffix.lstrip('.')}")
+    temp_file = file_path.with_name(f".scripts_tmp.{file_path.suffix.lstrip('.')}")
     command_adapter = adapter or _build_media_command_adapter()
 
     def probe(path: Path) -> list[MediaStream]:
@@ -334,7 +334,7 @@ def filter_to_english_audio_and_subtitles(
 def remove_leftover_temp_files(root: Path) -> list[Path]:
     """Clean up temporary files left behind by the remuxing workflow."""
     removed: list[Path] = []
-    for path in root.rglob(".nas_scripts_tmp.*"):
+    for path in root.rglob(".scripts_tmp.*"):
         if path.is_file():
             path.unlink(missing_ok=True)
             removed.append(path)

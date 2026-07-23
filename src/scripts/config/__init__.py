@@ -1,2 +1,1 @@
 """Configuration helpers and defaults."""
-

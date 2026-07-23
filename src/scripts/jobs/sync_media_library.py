@@ -14,13 +14,13 @@ import logging
 import time
 from pathlib import Path
 
-from nas_scripts.config.sync_media_library import (
+from scripts.config.sync_media_library import (
     SyncMediaLibraryConfig,
     load_sync_media_library_config,
 )
-from nas_scripts.utils.filesystem import sha256_file
-from nas_scripts.utils.job import run_locked_job
-from nas_scripts.utils.media import (
+from scripts.utils.filesystem import sha256_file
+from scripts.utils.job import run_locked_job
+from scripts.utils.media import (
     collect_relative_files,
     collect_relative_media_files,
     copy_file_with_metadata,
@@ -30,10 +30,9 @@ from nas_scripts.utils.media import (
     remove_empty_directories,
     remove_leftover_temp_files,
 )
-from nas_scripts.utils.state import load_state, save_state
-from nas_scripts.utils.verification_cache import (
+from scripts.utils.state import load_state, save_state
+from scripts.utils.verification_cache import (
     DEFAULT_SYNC_UPDATE_POLICY,
-    FILTER_POLICY_VERSION,
     VerificationState,
     VerifiedStateEntry,
     build_cache_validation_strategies,
@@ -48,7 +47,6 @@ class FilterStats:
     """Counters emitted by the media filter phase."""
 
     skipped_verified: int = 0
-    migrated_legacy: int = 0
     ffprobe_failures: int = 0
     filtered: int = 0
     filter_failures: int = 0
@@ -71,7 +69,9 @@ class MediaFilterProcessor:
     def run(self) -> None:
         """Process all destination media files and persist the next cache state."""
         self.logger.info("Filter phase: loading state from %s", self.config.state_file)
-        self.logger.info("Filter phase: cache validation mode=%s", self.config.cache_validation_mode)
+        self.logger.info(
+            "Filter phase: cache validation mode=%s", self.config.cache_validation_mode
+        )
         media_files = collect_relative_media_files(self.config.dest_dir, self.config.extensions)
         self.logger.info(
             "Checking %s media file(s) for non-English audio/subtitle streams.",
@@ -87,12 +87,11 @@ class MediaFilterProcessor:
         self.logger.info(
             (
                 "Filter phase summary: media_files=%s skipped_verified=%s "
-                "migrated_legacy=%s newly_verified_clean=%s filtered=%s "
+                "newly_verified_clean=%s filtered=%s "
                 "ffprobe_failures=%s filter_failures=%s remaining_non_english=%s"
             ),
             len(media_files),
             self.stats.skipped_verified,
-            self.stats.migrated_legacy,
             self.stats.newly_verified_clean,
             self.stats.filtered,
             self.stats.ffprobe_failures,
@@ -117,11 +116,6 @@ class MediaFilterProcessor:
             self.stats.skipped_verified += 1
             return
 
-        if self._migrate_legacy_stat_entry(relpath, previous, current_size, current_mtime_ns):
-            self.logger.info("Skipping verified legacy cache entry without checksum: %s", file_path)
-            self.stats.migrated_legacy += 1
-            return
-
         if previous is not None and previous.get("verified", False):
             self.logger.info("Filter stat cache miss; computing checksum: %s", file_path)
             current_checksum = sha256_file(file_path)
@@ -134,17 +128,6 @@ class MediaFilterProcessor:
             current_checksum,
         ):
             self.logger.info("Skipping already verified file: %s", file_path)
-            self.stats.skipped_verified += 1
-            return
-
-        if self._upgrade_outdated_policy(
-            relpath,
-            previous,
-            current_size,
-            current_mtime_ns,
-            current_checksum,
-        ):
-            self.stats.migrated_legacy += 1
             self.stats.skipped_verified += 1
             return
 
@@ -203,34 +186,6 @@ class MediaFilterProcessor:
         )
         return True
 
-    def _migrate_legacy_stat_entry(
-        self,
-        relpath: str,
-        previous: VerifiedStateEntry | None,
-        current_size: int,
-        current_mtime_ns: int,
-    ) -> bool:
-        """Migrate current-policy verified entries that predate stat fields."""
-        if not (
-            previous is not None
-            and previous.get("verified", False)
-            and previous.get("policy_version") == FILTER_POLICY_VERSION
-            and (
-                not isinstance(previous.get("size"), int)
-                or not isinstance(previous.get("mtime_ns"), int)
-            )
-        ):
-            return False
-        self._record_state_entry(
-            relpath,
-            upgrade_verified_state_entry(
-                previous,
-                size=current_size,
-                mtime_ns=current_mtime_ns,
-            ),
-        )
-        return True
-
     def _reuse_cache_with_checksum(
         self,
         relpath: str,
@@ -249,36 +204,6 @@ class MediaFilterProcessor:
         ):
             return False
         assert previous is not None
-        self._record_state_entry(
-            relpath,
-            upgrade_verified_state_entry(
-                previous,
-                size=current_size,
-                mtime_ns=current_mtime_ns,
-            ),
-        )
-        return True
-
-    def _upgrade_outdated_policy(
-        self,
-        relpath: str,
-        previous: VerifiedStateEntry | None,
-        current_size: int,
-        current_mtime_ns: int,
-        current_checksum: str | None,
-    ) -> bool:
-        """Upgrade same-checksum entries from older filter policy versions."""
-        if not (
-            previous is not None
-            and current_checksum is not None
-            and previous.get("sha256") == current_checksum
-            and previous.get("policy_version") != FILTER_POLICY_VERSION
-        ):
-            return False
-        self.logger.info(
-            "Upgrading cached verification policy without recheck: %s",
-            self.config.dest_dir / relpath,
-        )
         self._record_state_entry(
             relpath,
             upgrade_verified_state_entry(
@@ -383,15 +308,6 @@ def sync_media_files(
         if decision.reason == "preserve_filtered_verified_current_policy":
             logger.info(
                 "Sync skip to preserve filtered destination (verified + source not newer): %s",
-                relpath,
-            )
-            continue
-        if decision.reason == "preserve_filtered_verified_legacy_policy":
-            logger.info(
-                (
-                    "Sync skip to preserve filtered destination with legacy policy "
-                    "(verified + source not newer): %s"
-                ),
                 relpath,
             )
             continue

@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from nas_scripts.utils.extensions import has_extension
-from nas_scripts.utils.file_metadata import (
+from scripts.utils.extensions import has_extension
+from scripts.utils.file_metadata import (
     PathTimestamps,
     apply_ownership,
     apply_path_timestamps,
     capture_path_timestamps,
     set_path_timestamp_from_source,
 )
-from nas_scripts.utils.organizer_paths import (
+from scripts.utils.organizer_paths import (
     build_destination_dir,
     collect_matching_files,
     collect_top_level_matching_files,

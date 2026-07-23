@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from nas_scripts.config.organize_temp_media import OrganizeTempMediaConfig
-from nas_scripts.config.sync_media_library import SyncMediaLibraryConfig
+from scripts.config.organize_temp_media import OrganizeTempMediaConfig
+from scripts.config.sync_media_library import SyncMediaLibraryConfig
 
 
 def make_organize_config(tmp_path: Path) -> OrganizeTempMediaConfig:

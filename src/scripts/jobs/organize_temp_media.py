@@ -14,24 +14,24 @@ from pathlib import Path
 import shutil
 from typing import Callable, Protocol
 
-from nas_scripts.config.organize_temp_media import (
+from scripts.config.organize_temp_media import (
     OrganizeTempMediaConfig,
     load_organize_temp_media_config,
 )
-from nas_scripts.utils.file_metadata import (
+from scripts.utils.file_metadata import (
     apply_ownership,
     apply_path_timestamps,
     capture_path_timestamps,
     PathTimestamps,
 )
-from nas_scripts.utils.organizer_paths import (
+from scripts.utils.organizer_paths import (
     build_destination_dir,
     collect_matching_files,
     collect_top_level_matching_files,
     collect_top_level_matching_items,
     month_folder_name,
 )
-from nas_scripts.utils.job import run_locked_job
+from scripts.utils.job import run_locked_job
 
 
 ConfigLoader = Callable[[], OrganizeTempMediaConfig]

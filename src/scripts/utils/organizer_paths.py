@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 import re
 
-from nas_scripts.utils.extensions import has_extension
+from scripts.utils.extensions import has_extension
 
 
 def collect_matching_files(root: Path, extensions: tuple[str, ...]) -> list[Path]:
